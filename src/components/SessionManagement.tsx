@@ -11,7 +11,6 @@ import {
   Play,
   Square,
   X,
-  ShieldCheck,
   Trash2,
   AlertTriangle,
   Edit3,
@@ -306,25 +305,6 @@ export const SessionManagement: React.FC<SessionManagementProps> = ({
             </button>
           </div>
         )}
-      </div>
-
-      {/* Regimental Degree Lock & Admin Notice Banner */}
-      <div className="bg-amber-950/30 border border-amber-800/50 rounded-xl p-4 flex items-start space-x-3 text-xs text-amber-200">
-        <ShieldCheck className="w-5 h-5 text-amber-400 shrink-0 mt-0.5" />
-        <div className="space-y-1">
-          <h4 className="font-semibold text-amber-300 uppercase tracking-wider">
-            Normas de Segurança, Integridade Histórica e Abertura de Sessões
-          </h4>
-          <p className="text-amber-200/80 leading-relaxed">
-            <strong>Permissões de Abertura:</strong> Os cargos de <strong>Secretário</strong>, <strong>Chanceler</strong> e <strong>Venerável Mestre</strong> possuem autorização regimental para abrir reuniões, ativar chamadas de QR Code e agendar novas sessões no sistema.
-          </p>
-          <p className="text-amber-200/80 leading-relaxed">
-            <strong>Proteção contra Exclusão Acidental:</strong> Para resguardo fidedigno do livro de presenças e atas após o encerramento, a exclusão de sessões é restrita <strong>EXCLUSIVAMENTE ao Administrador do Sistema (User 193245)</strong>. Nenhum cargo da administração pode apagar sessões, garantindo a integridade dos registros.
-          </p>
-          <p className="text-amber-200/80 leading-relaxed">
-            <strong>Trava por Grau:</strong> O sistema impede estritamente que um Irmão registre presença em uma sessão de Grau superior ao seu (Aprendizes não registram presenças em Trabalhos de Companheiro ou Mestre).
-          </p>
-        </div>
       </div>
 
       {/* Sessions List Grid */}

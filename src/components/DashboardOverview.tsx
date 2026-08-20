@@ -556,33 +556,6 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({
           </div>
         </div>
 
-        {/* Pending Justifications for Active Session Card */}
-        <div
-          onClick={() => setActiveTab('justificativas')}
-          className="bg-slate-900 border border-slate-800 hover:border-amber-500/50 rounded-xl p-4 transition cursor-pointer group"
-        >
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-medium text-slate-400">Justificativas na Sessão</span>
-            <div className="p-2 rounded-lg bg-amber-500/10 text-amber-400 group-hover:scale-110 transition">
-              <FileCheck2 className="w-5 h-5" />
-            </div>
-          </div>
-          <div className="mt-3">
-            <span className="text-2xl font-bold text-amber-400">
-              {activeSession ? activeSessionJustifications.length : 0}
-            </span>
-            <span className="text-xs text-slate-400 ml-2">
-              {activeSession
-                ? `${activeSessionPendingJustifications.length} Pendente(s)`
-                : 'Sem Sessão Ativa'}
-            </span>
-          </div>
-          <div className="mt-2 text-[11px] text-amber-500/80 flex items-center space-x-1 pt-2 border-t border-slate-800/80">
-            <Clock className="w-3 h-3" />
-            <span>{activeSession ? 'Abonos desta sessão' : 'Aguardando sessão'}</span>
-          </div>
-        </div>
-
         {/* Absences for Active Session Card */}
         <div
           onClick={() => {
@@ -611,6 +584,33 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({
                 ? `Faltas s/ justificativa: ${Math.max(0, (stats?.totalAbsent || 0) - (stats?.totalJustified || 0))}`
                 : 'Sem sessão ativa'}
             </span>
+          </div>
+        </div>
+
+        {/* Pending Justifications for Active Session Card */}
+        <div
+          onClick={() => setActiveTab('justificativas')}
+          className="bg-slate-900 border border-slate-800 hover:border-amber-500/50 rounded-xl p-4 transition cursor-pointer group"
+        >
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-medium text-slate-400">Justificativas na Sessão</span>
+            <div className="p-2 rounded-lg bg-amber-500/10 text-amber-400 group-hover:scale-110 transition">
+              <FileCheck2 className="w-5 h-5" />
+            </div>
+          </div>
+          <div className="mt-3">
+            <span className="text-2xl font-bold text-amber-400">
+              {activeSession ? activeSessionJustifications.length : 0}
+            </span>
+            <span className="text-xs text-slate-400 ml-2">
+              {activeSession
+                ? `${activeSessionPendingJustifications.length} Pendente(s)`
+                : 'Sem Sessão Ativa'}
+            </span>
+          </div>
+          <div className="mt-2 text-[11px] text-amber-500/80 flex items-center space-x-1 pt-2 border-t border-slate-800/80">
+            <Clock className="w-3 h-3" />
+            <span>{activeSession ? 'Abonos desta sessão' : 'Aguardando sessão'}</span>
           </div>
         </div>
 

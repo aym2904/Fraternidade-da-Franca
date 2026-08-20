@@ -10,7 +10,8 @@ import {
 import { Member, Session, AttendanceRecord, VisitorRecord, Justification, Balaustre } from './types/masonic';
 import { detectInactivityAlerts } from './utils/masonicUtils';
 import { supabaseService, SupabaseConnectionStatus } from './lib/supabaseService';
-import { Navbar } from './components/Navbar';
+import { Sidebar } from './components/Sidebar';
+import { TopHeader } from './components/TopHeader';
 import { DashboardOverview } from './components/DashboardOverview';
 import { MemberManagement } from './components/MemberManagement';
 import { SessionManagement } from './components/SessionManagement';
@@ -134,6 +135,22 @@ export default function App() {
   });
 
   const [activeTab, setActiveTab] = useState<string>('painel');
+
+  // Lateral sidebar state (expanded / collapsed, saved in localStorage)
+  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState<boolean>(() => {
+    try {
+      return localStorage.getItem('masonic_sidebar_collapsed') === 'true';
+    } catch (e) {
+      return false;
+    }
+  });
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState<boolean>(false);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem('masonic_sidebar_collapsed', String(isSidebarCollapsed));
+    } catch (e) {}
+  }, [isSidebarCollapsed]);
 
   // Supabase diagnostic and connection status state
   const [supabaseStatus, setSupabaseStatus] = useState<SupabaseConnectionStatus | null>(null);
@@ -441,24 +458,43 @@ export default function App() {
   const isAdmin = isLodgeAdmin(currentUser);
 
   return (
-    <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col font-sans">
-      {/* Top Masonic Header & Navigation */}
-      <Navbar
+    <div className="min-h-screen bg-slate-950 text-slate-100 flex font-sans">
+      {/* Lateral Collapsible Sidebar */}
+      <Sidebar
         activeTab={activeTab}
         setActiveTab={setActiveTab}
         currentUser={currentUser}
         allMembers={members}
-        setCurrentUser={handleSelectUser}
         onLogout={handleLogout}
         pendingJustificationsCount={pendingJustificationsCount}
         inactivityAlertsCount={inactivityAlerts.length}
         hasActiveSession={Boolean(activeSession)}
-        supabaseStatus={supabaseStatus}
-        onOpenSupabaseModal={() => setIsSupabaseModalOpen(true)}
+        isMobileOpen={isMobileMenuOpen}
+        setIsMobileOpen={setIsMobileMenuOpen}
+        isCollapsed={isSidebarCollapsed}
+        setIsCollapsed={setIsSidebarCollapsed}
       />
 
-      {/* Main Container */}
-      <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6">
+      {/* Main Layout Area */}
+      <div className="flex-1 flex flex-col min-w-0 min-h-screen overflow-x-hidden">
+        {/* Top Header Bar */}
+        <TopHeader
+          activeTab={activeTab}
+          setActiveTab={setActiveTab}
+          currentUser={currentUser}
+          allMembers={members}
+          setCurrentUser={handleSelectUser}
+          onLogout={handleLogout}
+          hasActiveSession={Boolean(activeSession)}
+          supabaseStatus={supabaseStatus}
+          onOpenSupabaseModal={() => setIsSupabaseModalOpen(true)}
+          onOpenMobileMenu={() => setIsMobileMenuOpen(true)}
+          isSidebarCollapsed={isSidebarCollapsed}
+          onToggleSidebarCollapse={() => setIsSidebarCollapsed((prev) => !prev)}
+        />
+
+        {/* Main Container */}
+        <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6">
         {(activeTab === 'painel' || activeTab === 'meu_painel') && (
           <DashboardOverview
             activeSession={activeSession}
@@ -570,15 +606,16 @@ export default function App() {
         )}
       </main>
 
-      {/* Footer */}
-      <footer className="border-t border-slate-900 bg-slate-950 py-4 text-center text-xs text-slate-500">
-        <p className="font-serif-masonic text-amber-500/80 tracking-wider">
-          A∴R∴L∴S∴ Fraternidade da Franca Nº3571
-        </p>
-        <p className="mt-1 text-[11px] text-slate-600">
-          Sistema de Controle de Presença, Chanceler e Secretaria
-        </p>
-      </footer>
+        {/* Footer */}
+        <footer className="border-t border-slate-900 bg-slate-950 py-4 text-center text-xs text-slate-500 mt-auto">
+          <p className="font-serif-masonic text-amber-500/80 tracking-wider">
+            A∴R∴L∴S∴ Fraternidade da Franca Nº3571
+          </p>
+          <p className="mt-1 text-[11px] text-slate-600">
+            Sistema de Controle de Presença, Chanceler e Secretaria
+          </p>
+        </footer>
+      </div>
 
       {/* Supabase Status and Setup Modal (System Admin 193245 only) */}
       {isSystemAdmin(currentUser) && (
