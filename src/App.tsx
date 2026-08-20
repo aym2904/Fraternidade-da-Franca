@@ -20,6 +20,7 @@ import { JustificationsManager } from './components/JustificationsManager';
 import { BalaustreIntegration } from './components/BalaustreIntegration';
 import { FrequencyReports } from './components/FrequencyReports';
 import { LoginScreen } from './components/LoginScreen';
+import { PublicMemberRegistrationModal } from './components/PublicMemberRegistrationModal';
 import { SupabaseStatusModal } from './components/SupabaseStatusModal';
 import { isLodgeAdmin, isSystemAdmin } from './utils/authUtils';
 
@@ -135,6 +136,70 @@ export default function App() {
   });
 
   const [activeTab, setActiveTab] = useState<string>('painel');
+
+  // Public Self-Registration Modal state (auto-opens if URL has ?cadastro=true, #cadastro, /cadastro or button click)
+  const [isPublicRegistrationOpen, setIsPublicRegistrationOpen] = useState<boolean>(() => {
+    try {
+      const search = window.location.search.toLowerCase();
+      const hash = window.location.hash.toLowerCase();
+      const path = window.location.pathname.toLowerCase();
+      return (
+        search.includes('cadastro') ||
+        search.includes('inscricao') ||
+        search.includes('registro') ||
+        hash.includes('cadastro') ||
+        hash.includes('inscricao') ||
+        path.includes('cadastro') ||
+        path.includes('inscricao')
+      );
+    } catch {
+      return false;
+    }
+  });
+
+  useEffect(() => {
+    const handleUrlCheck = () => {
+      try {
+        const search = window.location.search.toLowerCase();
+        const hash = window.location.hash.toLowerCase();
+        const path = window.location.pathname.toLowerCase();
+        if (
+          search.includes('cadastro') ||
+          search.includes('inscricao') ||
+          search.includes('registro') ||
+          hash.includes('cadastro') ||
+          hash.includes('inscricao') ||
+          path.includes('cadastro') ||
+          path.includes('inscricao')
+        ) {
+          setIsPublicRegistrationOpen(true);
+        }
+      } catch {}
+    };
+
+    handleUrlCheck();
+    window.addEventListener('popstate', handleUrlCheck);
+    window.addEventListener('hashchange', handleUrlCheck);
+    return () => {
+      window.removeEventListener('popstate', handleUrlCheck);
+      window.removeEventListener('hashchange', handleUrlCheck);
+    };
+  }, []);
+
+  const handleClosePublicRegistration = () => {
+    setIsPublicRegistrationOpen(false);
+    try {
+      if (
+        window.location.search.includes('cadastro') ||
+        window.location.search.includes('inscricao') ||
+        window.location.hash.includes('cadastro') ||
+        window.location.hash.includes('inscricao')
+      ) {
+        const cleanUrl = window.location.origin + window.location.pathname;
+        window.history.replaceState({}, document.title, cleanUrl);
+      }
+    } catch {}
+  };
 
   // Lateral sidebar state (expanded / collapsed, saved in localStorage)
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState<boolean>(() => {
@@ -269,14 +334,27 @@ export default function App() {
   // Auth check gate
   if (!currentUser) {
     return (
-      <LoginScreen
-        members={members}
-        onLogin={(user) => {
-          setCurrentUser(user);
-          setActiveTab('painel');
-        }}
-        onRegisterMember={handleAddMember}
-      />
+      <>
+        <LoginScreen
+          members={members}
+          onLogin={(user) => {
+            setCurrentUser(user);
+            setActiveTab('painel');
+          }}
+          onRegisterMember={handleAddMember}
+          onOpenPublicRegistration={() => setIsPublicRegistrationOpen(true)}
+        />
+
+        <PublicMemberRegistrationModal
+          isOpen={isPublicRegistrationOpen}
+          onClose={handleClosePublicRegistration}
+          onAddMember={handleAddMember}
+          onSuccessLogin={(m) => {
+            setCurrentUser(m);
+            setActiveTab('painel');
+          }}
+        />
+      </>
     );
   }
 
@@ -637,6 +715,12 @@ export default function App() {
           }}
         />
       )}
+      {/* Public/Admin Member Registration Modal */}
+      <PublicMemberRegistrationModal
+        isOpen={isPublicRegistrationOpen}
+        onClose={handleClosePublicRegistration}
+        onAddMember={handleAddMember}
+      />
     </div>
   );
 }

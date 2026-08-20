@@ -176,7 +176,7 @@ export const MemberManagement: React.FC<MemberManagementProps> = ({
             <>
               <button
                 onClick={() => {
-                  const url = window.location.origin + window.location.pathname + '?cadastro=true';
+                  const url = `${window.location.origin}/?cadastro=true`;
                   navigator.clipboard.writeText(url);
                   setCopiedLink(true);
                   setTimeout(() => setCopiedLink(false), 3000);
@@ -190,7 +190,7 @@ export const MemberManagement: React.FC<MemberManagementProps> = ({
 
               <button
                 onClick={() => {
-                  const url = window.location.origin + window.location.pathname + '?cadastro=true';
+                  const url = `${window.location.origin}/?cadastro=true`;
                   const text = encodeURIComponent(
                     `🏛️ *A∴R∴L∴S Fraternidade da Franca N°3571 - Formulário de Inscrição e Cadastro de Obreiros*\n\nMeus Queridos Irmãos, favor preencher seus dados cadastrais e anexar sua fotografia oficial no link oficial abaixo:\n\n🔗 ${url}`
                   );

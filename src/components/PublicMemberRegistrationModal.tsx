@@ -59,8 +59,7 @@ export const PublicMemberRegistrationModal: React.FC<PublicMemberRegistrationMod
 
   const getShareUrl = () => {
     try {
-      const base = window.location.origin + window.location.pathname;
-      return `${base}?cadastro=true`;
+      return `${window.location.origin}/?cadastro=true`;
     } catch {
       return 'https://.../?cadastro=true';
     }
