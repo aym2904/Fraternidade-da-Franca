@@ -1,0 +1,10 @@
+{
+  "name": "A∴R∴L∴S∴ Fraternidade da Franca Nº3571",
+  "description": "Sistema completo para controle de presença maçônica em sessões da A∴R∴L∴S∴ Fraternidade da Franca Nº3571.",
+  "requestFramePermissions": [
+    "camera"
+  ],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}
