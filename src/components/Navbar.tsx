@@ -12,7 +12,8 @@ import {
   LogOut,
   User,
   ChevronDown,
-  Database
+  Database,
+  Building2
 } from 'lucide-react';
 import { Member } from '../types/masonic';
 import { isLodgeAdmin, isSystemAdmin, getRoleBadgeLabel } from '../utils/authUtils';
@@ -48,6 +49,7 @@ export const Navbar: React.FC<NavbarProps> = ({
   onOpenSupabaseModal,
 }) => {
   const isAdmin = isLodgeAdmin(currentUser);
+  const isSysAdmin = isSystemAdmin(currentUser);
   const badge = getRoleBadgeLabel(currentUser);
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
@@ -91,12 +93,12 @@ export const Navbar: React.FC<NavbarProps> = ({
 
           {/* User Profile & Menu (Hominho) */}
           <div className="flex items-center space-x-2 shrink-0">
-            {/* Supabase Connection Quick Badge (Admin only) */}
-            {isAdmin && onOpenSupabaseModal && (
+            {/* Supabase Connection Quick Badge (System Admin 193245 only) */}
+            {isSysAdmin && onOpenSupabaseModal && (
               <button
                 type="button"
                 onClick={onOpenSupabaseModal}
-                title="Status do Banco de Dados Supabase"
+                title="Status do Banco de Dados Supabase (Exclusivo Administrador 193245)"
                 className={`hidden sm:flex items-center space-x-1.5 px-2.5 py-1.5 rounded-xl text-[11px] font-semibold border transition active:scale-95 ${
                   supabaseStatus?.hasTables
                     ? 'bg-emerald-950/70 border-emerald-700/60 text-emerald-300 hover:bg-emerald-900/80 shadow-sm'
@@ -174,8 +176,49 @@ export const Navbar: React.FC<NavbarProps> = ({
                     </div>
                   </div>
 
-                  {/* Supabase Status Button inside menu (Admin only) */}
-                  {isAdmin && onOpenSupabaseModal && (
+                  {/* Quick Profile Navigation Links inside menu */}
+                  <div className="py-1 space-y-1">
+                    <button
+                      onClick={() => {
+                        setIsUserMenuOpen(false);
+                        setActiveTab('meu_painel');
+                      }}
+                      className={`w-full text-left px-3 py-2 text-xs rounded-xl flex items-center justify-between font-medium transition ${
+                        activeTab === 'meu_painel'
+                          ? 'bg-amber-500/20 text-amber-300 border border-amber-500/40'
+                          : 'text-slate-300 hover:bg-slate-800'
+                      }`}
+                    >
+                      <div className="flex items-center space-x-2">
+                        <User className="w-4 h-4 text-amber-400" />
+                        <span>Meu Painel do Obreiro</span>
+                      </div>
+                      <span className="text-[10px] text-slate-400">Pessoal</span>
+                    </button>
+
+                    {isAdmin && (
+                      <button
+                        onClick={() => {
+                          setIsUserMenuOpen(false);
+                          setActiveTab('painel');
+                        }}
+                        className={`w-full text-left px-3 py-2 text-xs rounded-xl flex items-center justify-between font-medium transition ${
+                          activeTab === 'painel'
+                            ? 'bg-amber-500/20 text-amber-300 border border-amber-500/40'
+                            : 'text-slate-300 hover:bg-slate-800'
+                        }`}
+                      >
+                        <div className="flex items-center space-x-2">
+                          <BarChart3 className="w-4 h-4 text-amber-400" />
+                          <span>Visão Geral (Secretaria)</span>
+                        </div>
+                        <span className="text-[10px] text-slate-400">Loja</span>
+                      </button>
+                    )}
+                  </div>
+
+                  {/* Supabase Status Button inside menu (System Admin 193245 only) */}
+                  {isSysAdmin && onOpenSupabaseModal && (
                     <div className="pt-2">
                       <button
                         onClick={() => {
@@ -221,18 +264,33 @@ export const Navbar: React.FC<NavbarProps> = ({
 
         {/* Navigation Tabs Bar (Filtered by Role/Degree Permissions) */}
         <nav className="flex space-x-1 overflow-x-auto pb-2 scrollbar-none border-t border-slate-800/80 pt-2 text-xs font-medium">
-          {/* Main Dashboard */}
+          {/* Meu Painel do Obreiro (Available for ALL brethren including Officers: Venerável Mestre, Secretário, Chanceler) */}
           <button
-            onClick={() => setActiveTab('painel')}
+            onClick={() => setActiveTab('meu_painel')}
             className={`flex items-center space-x-1.5 px-3 py-2 rounded-lg whitespace-nowrap transition ${
-              activeTab === 'painel'
+              activeTab === 'meu_painel' || (!isAdmin && activeTab === 'painel')
                 ? 'bg-amber-500/15 text-amber-300 border border-amber-500/40'
                 : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/50'
             }`}
           >
-            <BarChart3 className="w-4 h-4" />
-            <span>{isAdmin ? 'Visão Geral (Secretaria)' : 'Meu Painel do Obreiro'}</span>
+            <BarChart3 className="w-4 h-4 text-amber-400" />
+            <span>Meu Painel do Obreiro</span>
           </button>
+
+          {/* Visão Geral da Loja / Secretaria (Admin Only) */}
+          {isAdmin && (
+            <button
+              onClick={() => setActiveTab('painel')}
+              className={`flex items-center space-x-1.5 px-3 py-2 rounded-lg whitespace-nowrap transition ${
+                activeTab === 'painel'
+                  ? 'bg-amber-500/15 text-amber-300 border border-amber-500/40'
+                  : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/50'
+              }`}
+            >
+              <Building2 className="w-4 h-4 text-amber-400" />
+              <span>Visão Geral (Secretaria)</span>
+            </button>
+          )}
 
           {/* QR Code Attendance / Registrar Presença */}
           <button

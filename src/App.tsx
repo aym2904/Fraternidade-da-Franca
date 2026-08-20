@@ -287,12 +287,28 @@ export default function App() {
     }
   };
 
+  const handleDeleteMember = (memberId: string) => {
+    if (!isSystemAdmin(currentUser)) {
+      console.warn('Operação restrita exclusivamente ao Administrador do Sistema (User 193245).');
+      return;
+    }
+    setMembers((prev) => prev.filter((m) => m.id !== memberId));
+    setAttendances((prev) => prev.filter((a) => a.memberId !== memberId));
+    setJustifications((prev) => prev.filter((j) => j.memberId !== memberId));
+    supabaseService.deleteMember(memberId);
+  };
+
   const handleAddSession = (newSess: Session) => {
     setSessions((prev) => [newSess, ...prev]);
     supabaseService.upsertSession(newSess);
   };
 
   const handleUpdateSession = (updatedSess: Session) => {
+    const isApproved = balaustres.some((b) => b.sessionId === updatedSess.id && b.status === 'Aprovado');
+    if (isApproved) {
+      console.warn('Não é permitido editar uma sessão cujo Balaústre já foi aprovado.');
+      return;
+    }
     setSessions((prev) => prev.map((s) => (s.id === updatedSess.id ? updatedSess : s)));
     supabaseService.upsertSession(updatedSess);
   };
@@ -329,6 +345,15 @@ export default function App() {
   };
 
   const handleToggleActiveSession = (sessionId: string) => {
+    const targetSession = sessions.find((s) => s.id === sessionId);
+    const isApproved = balaustres.some((b) => b.sessionId === sessionId && b.status === 'Aprovado');
+    
+    // If activating a session whose Balaustre is approved, block it
+    if (!targetSession?.active && isApproved) {
+      console.warn('Esta sessão não pode ser ativada pois o seu Balaústre já foi aprovado.');
+      return;
+    }
+
     setSessions((prev) => {
       const updated = prev.map((s) => {
         if (s.id === sessionId) {
@@ -434,7 +459,7 @@ export default function App() {
 
       {/* Main Container */}
       <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6">
-        {activeTab === 'painel' && (
+        {(activeTab === 'painel' || activeTab === 'meu_painel') && (
           <DashboardOverview
             activeSession={activeSession}
             sessions={sessions}
@@ -447,6 +472,7 @@ export default function App() {
             setActiveTab={setActiveTab}
             onQuickCheckIn={() => handleRecordAttendance(currentUser.id, 'QR_CODE')}
             isCurrentUserCheckedIn={isCurrentUserCheckedIn}
+            forcePersonalView={activeTab === 'meu_painel' || !isAdmin}
           />
         )}
 
@@ -456,6 +482,7 @@ export default function App() {
             currentUser={currentUser}
             onAddMember={handleAddMember}
             onUpdateMember={handleUpdateMember}
+            onDeleteMember={handleDeleteMember}
             sessions={sessions}
             attendances={attendances}
             justifications={justifications}
@@ -467,6 +494,7 @@ export default function App() {
             sessions={sessions}
             members={members}
             currentUser={currentUser}
+            balaustres={balaustres}
             onAddSession={handleAddSession}
             onUpdateSession={handleUpdateSession}
             onToggleActiveSession={handleToggleActiveSession}
@@ -552,8 +580,8 @@ export default function App() {
         </p>
       </footer>
 
-      {/* Supabase Status and Setup Modal (Admin only) */}
-      {isAdmin && (
+      {/* Supabase Status and Setup Modal (System Admin 193245 only) */}
+      {isSystemAdmin(currentUser) && (
         <SupabaseStatusModal
           isOpen={isSupabaseModalOpen}
           onClose={() => setIsSupabaseModalOpen(false)}

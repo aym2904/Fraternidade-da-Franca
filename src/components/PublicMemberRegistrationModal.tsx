@@ -146,10 +146,10 @@ export const PublicMemberRegistrationModal: React.FC<PublicMemberRegistrationMod
   };
 
   return (
-    <div className="fixed inset-0 z-50 bg-slate-950/90 backdrop-blur-md flex flex-col items-center justify-start sm:justify-center p-2 sm:p-4 overflow-y-auto overscroll-contain">
-      <div className="bg-slate-900 border border-slate-800 rounded-2xl max-w-2xl w-full my-auto text-slate-200 shadow-2xl flex flex-col max-h-[94vh] overflow-hidden">
+    <div className="fixed inset-0 z-50 bg-slate-950/90 backdrop-blur-md flex items-center justify-center p-2 sm:p-4 overflow-y-auto">
+      <div className="bg-slate-900 border border-slate-800 rounded-2xl max-w-2xl w-full text-slate-200 shadow-2xl flex flex-col max-h-[92vh] overflow-hidden my-auto">
         {/* Fixed Header */}
-        <div className="flex items-center justify-between border-b border-slate-800 p-4 sm:p-5 shrink-0 bg-slate-900/95">
+        <div className="flex items-center justify-between border-b border-slate-800 p-4 sm:p-5 shrink-0 bg-slate-900/95 z-10">
           <div className="flex items-center space-x-3">
             <div className="w-10 h-10 rounded-xl bg-amber-500/20 border border-amber-500/40 flex items-center justify-center text-amber-400 shrink-0">
               <UserPlus className="w-5 h-5" />
@@ -174,7 +174,7 @@ export const PublicMemberRegistrationModal: React.FC<PublicMemberRegistrationMod
         </div>
 
         {/* Scrollable Content */}
-        <div className="p-4 sm:p-6 overflow-y-auto space-y-6 flex-1 overscroll-contain">
+        <div className="p-4 sm:p-6 overflow-y-auto space-y-6 flex-1 min-h-0 overscroll-contain">
           {/* Share Box for Admins */}
           <div className="bg-slate-950/80 border border-slate-800 rounded-xl p-3 flex flex-col sm:flex-row items-center justify-between gap-2.5 text-xs">
             <span className="text-slate-400 text-[11px] text-center sm:text-left">
@@ -374,6 +374,7 @@ export const PublicMemberRegistrationModal: React.FC<PublicMemberRegistrationMod
                         ...formData,
                         degree: deg,
                         degreeLevel: deg === 'Mestre' ? 3 : deg === 'Companheiro' ? 2 : 1,
+                        currentOfficerRole: deg === 'Mestre' ? formData.currentOfficerRole : undefined,
                       });
                     }}
                     className="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-slate-200 focus:outline-none focus:border-amber-500"
@@ -403,30 +404,36 @@ export const PublicMemberRegistrationModal: React.FC<PublicMemberRegistrationMod
                   <label className="block text-slate-300 font-medium mb-1">
                     Cargo Atual na Administração (se houver)
                   </label>
-                  <select
-                    value={formData.currentOfficerRole || ''}
-                    onChange={(e) =>
-                      setFormData({
-                        ...formData,
-                        currentOfficerRole: (e.target.value as LodgeOfficerRole) || undefined,
-                      })
-                    }
-                    className="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-slate-200 focus:outline-none focus:border-amber-500"
-                  >
-                    <option value="">Nenhum (Membro do Quadro)</option>
-                    <option value="Venerável Mestre">Venerável Mestre</option>
-                    <option value="1º Vigilante">1º Vigilante</option>
-                    <option value="2º Vigilante">2º Vigilante</option>
-                    <option value="Orador">Orador</option>
-                    <option value="Secretário">Secretário</option>
-                    <option value="Tesoureiro">Tesoureiro</option>
-                    <option value="Chanceler">Chanceler</option>
-                    <option value="Mestre de Cerimônias">Mestre de Cerimônias</option>
-                    <option value="Guarda do Templo">Guarda do Templo</option>
-                    <option value="Hospedeiro">Hospedeiro</option>
-                    <option value="Bibliotecário">Bibliotecário</option>
-                    <option value="Mestre de Harmonia">Mestre de Harmonia</option>
-                  </select>
+                  {formData.degree !== 'Mestre' ? (
+                    <div className="bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-xs text-slate-400">
+                      Cargos em Loja e permissões de gestão/QR Code são privativos a Mestres Maçons (3º Grau).
+                    </div>
+                  ) : (
+                    <select
+                      value={formData.currentOfficerRole || ''}
+                      onChange={(e) =>
+                        setFormData({
+                          ...formData,
+                          currentOfficerRole: (e.target.value as LodgeOfficerRole) || undefined,
+                        })
+                      }
+                      className="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-slate-200 focus:outline-none focus:border-amber-500"
+                    >
+                      <option value="">Nenhum (Membro do Quadro)</option>
+                      <option value="Venerável Mestre">Venerável Mestre (Gestão e Exibição de QR Code)</option>
+                      <option value="Secretário">Secretário (Gestão e Exibição de QR Code)</option>
+                      <option value="Chanceler">Chanceler (Gestão e Exibição de QR Code)</option>
+                      <option value="1º Vigilante">1º Vigilante</option>
+                      <option value="2º Vigilante">2º Vigilante</option>
+                      <option value="Orador">Orador</option>
+                      <option value="Tesoureiro">Tesoureiro</option>
+                      <option value="Mestre de Cerimônias">Mestre de Cerimônias</option>
+                      <option value="Guarda do Templo">Guarda do Templo</option>
+                      <option value="Hospedeiro">Hospedeiro</option>
+                      <option value="Bibliotecário">Bibliotecário</option>
+                      <option value="Mestre de Harmonia">Mestre de Harmonia</option>
+                    </select>
+                  )}
                 </div>
 
                 <div className="sm:col-span-2">

@@ -299,15 +299,18 @@ export const QrCodeScannerModal: React.FC<QrCodeScannerModalProps> = ({
                 />
               </label>
 
-              <button
-                type="button"
-                onClick={handleSimulateScan}
-                disabled={!isDegreeAccessible}
-                className="hover:text-amber-300 flex items-center space-x-1 text-slate-400 transition"
-              >
-                <QrCode className="w-3.5 h-3.5 text-amber-400" />
-                <span>Simular leitura</span>
-              </button>
+              {isLodgeAdmin(currentUser) && (
+                <button
+                  type="button"
+                  onClick={handleSimulateScan}
+                  disabled={!isDegreeAccessible}
+                  className="hover:text-amber-300 flex items-center space-x-1 text-slate-400 transition"
+                  title="Apenas Administradores / Oficiais"
+                >
+                  <QrCode className="w-3.5 h-3.5 text-amber-400" />
+                  <span>Simular leitura (Admin)</span>
+                </button>
+              )}
             </div>
           </div>
         )}
@@ -329,7 +332,7 @@ export const QrCodeScannerModal: React.FC<QrCodeScannerModalProps> = ({
                 type="text"
                 value={manualTokenInput}
                 onChange={(e) => setManualTokenInput(e.target.value)}
-                placeholder="Ex: QR-A1485-FRATERNIDADE3571-20260812"
+                placeholder="Ex: QR-A1485-FRATERNIDADE3571-..."
                 className="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2.5 text-xs text-slate-100 font-mono focus:outline-none focus:border-amber-500"
                 autoFocus
               />
@@ -351,7 +354,7 @@ export const QrCodeScannerModal: React.FC<QrCodeScannerModalProps> = ({
                   disabled={!isDegreeAccessible}
                   className="text-xs text-slate-400 hover:text-amber-300 underline transition"
                 >
-                  Usar Token Automático de Teste ({activeSession.qrCodeToken})
+                  Usar Token Automático de Teste (Admin)
                 </button>
               </div>
             )}

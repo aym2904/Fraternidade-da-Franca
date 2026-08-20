@@ -31,7 +31,7 @@ export const OFFICER_PERMISSIONS_MAP: Record<string, RolePermissions> = {
     canViewReports: true,
     roleTitle: 'Venerável Mestre',
     description: 'Presidência dos trabalhos, abertura e gestão de sessões, exibição do QR Code, aprovação de atas e justificativas.',
-    badgeLabel: 'VENERÁVEL MESTRE (ADMIN)',
+    badgeLabel: 'VENERÁVEL MESTRE',
   },
   'Secretário': {
     canStartSession: true,
@@ -43,7 +43,7 @@ export const OFFICER_PERMISSIONS_MAP: Record<string, RolePermissions> = {
     canViewReports: true,
     roleTitle: 'Secretário',
     description: 'Gestão administrativa, abertura de sessões, exibição de QR Code, lavratura de balaústres, livro negro e presenças.',
-    badgeLabel: 'SECRETÁRIO (ADMIN)',
+    badgeLabel: 'SECRETÁRIO',
   },
   'Chanceler': {
     canStartSession: true,
@@ -55,7 +55,7 @@ export const OFFICER_PERMISSIONS_MAP: Record<string, RolePermissions> = {
     canViewReports: true,
     roleTitle: 'Chanceler',
     description: 'Guarda do timbre, abertura de reuniões, exibição do QR Code, controle de presença do quadro, visitantes e abonos.',
-    badgeLabel: 'CHANCELER (ADMIN)',
+    badgeLabel: 'CHANCELER',
   },
 };
 
@@ -92,12 +92,13 @@ export function isSystemAdmin(member: Member | null | undefined): boolean {
 
 /**
  * Checks if a member has administrative/management officer permissions in the Lodge
- * (Secretário, Chanceler, Venerável Mestre, or System Admin).
+ * (Exclusivamente Secretário, Chanceler, Venerável Mestre com Grau de Mestre, ou Administrador do Sistema 193245).
  */
 export function isLodgeAdmin(member: Member | null | undefined): boolean {
   if (!member) return false;
   if (isSystemAdmin(member)) return true;
-  // Acesso restrito exclusivamente aos cargos de Secretário, Chanceler e Venerável Mestre
+  // Apenas Mestres Maçons (3º Grau) investidos estritamente nos cargos regimentais de gestão
+  if ((member.degreeLevel || 0) < 3) return false;
   const role = member.currentOfficerRole;
   return role ? ADMIN_OFFICER_ROLES.includes(role) : false;
 }
@@ -108,6 +109,14 @@ export function isLodgeAdmin(member: Member | null | undefined): boolean {
 export function getOfficerPermissions(role?: LodgeOfficerRole | string): RolePermissions | null {
   if (!role) return null;
   return OFFICER_PERMISSIONS_MAP[role] || null;
+}
+
+/**
+ * Checks if a member can view/exhibit the session QR Code and Token.
+ * Restrito estritamente a: Venerável Mestre, Secretário, Chanceler e Administrador do Sistema.
+ */
+export function canViewQrCodeAndToken(member: Member | null | undefined): boolean {
+  return isLodgeAdmin(member);
 }
 
 /**
@@ -154,7 +163,7 @@ export function getRoleBadgeLabel(member: Member): { label: string; colorClass: 
 
   if (isLodgeAdmin(member)) {
     return {
-      label: `${(member.currentOfficerRole || 'ADMIN').toUpperCase()} (ADMIN)`,
+      label: (member.currentOfficerRole || 'ADMINISTRAÇÃO').toUpperCase(),
       colorClass: 'bg-amber-500/20 text-amber-300 border border-amber-500/50',
     };
   }

@@ -134,37 +134,34 @@ Balaústre lavrado pelo Secretário da Oficina e submetido para aprovação regi
   };
 
   const [currentTextContent, setCurrentTextContent] = useState<string>(
-    existingBalaustre ? existingBalaustre.content : generateMinuteDraftText()
+    existingBalaustre ? existingBalaustre.content : ''
   );
 
   useEffect(() => {
     if (selectedSession) {
       const b = balaustres.find((item) => item.sessionId === selectedSession.id);
       if (b) {
-        setCurrentTextContent(b.content);
+        setCurrentTextContent(b.content || '');
         if (!isAdmin || b.status === 'Aprovado') {
           setIsEditingMode(false);
         }
       } else {
-        setCurrentTextContent(generateMinuteDraftText());
+        setCurrentTextContent('');
         setIsEditingMode(isAdmin);
       }
     }
-  }, [selectedSessionId, selectedSession?.id, selectedSession?.title, selectedSession?.degree, attendances.length, visitors.length, isAdmin]);
+  }, [selectedSessionId, selectedSession?.id, isAdmin]);
 
   const handleSessionChange = (sessionId: string) => {
     setSelectedSessionId(sessionId);
     setSaveFeedback(null);
     const b = balaustres.find((item) => item.sessionId === sessionId);
     if (b) {
-      setCurrentTextContent(b.content);
+      setCurrentTextContent(b.content || '');
       setIsEditingMode(isAdmin && b.status !== 'Aprovado');
     } else {
-      const sess = accessibleSessions.find((s) => s.id === sessionId);
-      if (sess) {
-        setCurrentTextContent(generateMinuteDraftText());
-        setIsEditingMode(isAdmin);
-      }
+      setCurrentTextContent('');
+      setIsEditingMode(isAdmin);
     }
   };
 
@@ -517,21 +514,28 @@ Balaústre lavrado pelo Secretário da Oficina e submetido para aprovação regi
                   <span>{copied ? 'Copiado!' : 'Copiar'}</span>
                 </button>
 
-                {/* Reopen for editing button (Admin only, when in read mode) */}
+                {/* Reopen for editing button (Admin only, when in read mode and not yet approved) */}
                 {isAdmin && !isEditingMode && (
-                  <button
-                    onClick={() => setIsEditingMode(true)}
-                    className="bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 text-xs px-3 py-1.5 rounded-lg flex items-center space-x-1.5 transition"
-                  >
-                    <Edit3 className="w-3.5 h-3.5 text-amber-400" />
-                    <span>Editar / Retificar</span>
-                  </button>
+                  isApproved ? (
+                    <span className="inline-flex items-center space-x-1.5 px-3 py-1.5 rounded-lg text-xs bg-slate-950 border border-emerald-500/40 text-emerald-300 font-medium">
+                      <Lock className="w-3.5 h-3.5 text-emerald-400" />
+                      <span>Balaústre Aprovado (Edição Encerrada)</span>
+                    </span>
+                  ) : (
+                    <button
+                      onClick={() => setIsEditingMode(true)}
+                      className="bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 text-xs px-3 py-1.5 rounded-lg flex items-center space-x-1.5 transition"
+                    >
+                      <Edit3 className="w-3.5 h-3.5 text-amber-400" />
+                      <span>Editar / Preencher Ata</span>
+                    </button>
+                  )
                 )}
               </div>
             </div>
 
             {/* Document Display / Editor Body */}
-            {isEditingMode && isAdmin ? (
+            {isEditingMode && isAdmin && !isApproved ? (
               /* --- EDITING MODE (ADMINS ONLY) --- */
               <div className="space-y-4">
                 <textarea
@@ -539,7 +543,7 @@ Balaústre lavrado pelo Secretário da Oficina e submetido para aprovação regi
                   value={currentTextContent}
                   onChange={(e) => setCurrentTextContent(e.target.value)}
                   className="w-full bg-slate-950 border border-slate-800 rounded-xl p-4 text-xs font-mono text-slate-200 leading-relaxed focus:outline-none focus:border-amber-500/70 shadow-inner"
-                  placeholder="Redija aqui os trabalhos e decisões da ata maçônica..."
+                  placeholder="Insira aqui o texto oficial do Balaústre lavrado pela Secretaria da Loja..."
                 />
 
                 {/* Separate Action Buttons for Saving and Approving */}
@@ -594,8 +598,24 @@ Balaústre lavrado pelo Secretário da Oficina e submetido para aprovação regi
                   </div>
 
                   {/* Text Content Formatted for Comfortable Reading */}
-                  <div className="text-xs sm:text-sm text-slate-200 leading-relaxed font-serif-masonic space-y-4 whitespace-pre-line bg-slate-900/40 p-4 sm:p-6 rounded-xl border border-slate-800/80">
-                    {currentTextContent}
+                  <div className="text-xs sm:text-sm text-slate-200 leading-relaxed font-serif-masonic space-y-4 whitespace-pre-line bg-slate-900/40 p-4 sm:p-6 rounded-xl border border-slate-800/80 min-h-[140px]">
+                    {currentTextContent ? (
+                      currentTextContent
+                    ) : (
+                      <div className="text-center py-8 text-slate-500 italic text-xs font-sans">
+                        Nenhum texto de balaústre inserido pela Secretaria para esta sessão até o momento.
+                        {isAdmin && (
+                          <div className="mt-3">
+                            <button
+                              onClick={() => setIsEditingMode(true)}
+                              className="bg-amber-500 hover:bg-amber-400 text-slate-950 font-semibold px-3 py-1.5 rounded-lg text-xs not-italic"
+                            >
+                              Inserir / Redigir Balaústre Agora
+                            </button>
+                          </div>
+                        )}
+                      </div>
+                    )}
                   </div>
 
                   {/* Official Masonic Signatures Preview */}

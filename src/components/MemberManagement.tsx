@@ -32,6 +32,7 @@ interface MemberManagementProps {
   members: Member[];
   onAddMember: (member: Member) => void;
   onUpdateMember: (member: Member) => void;
+  onDeleteMember?: (memberId: string) => void;
   sessions: Session[];
   attendances: AttendanceRecord[];
   justifications: Justification[];
@@ -42,6 +43,7 @@ export const MemberManagement: React.FC<MemberManagementProps> = ({
   members = [],
   onAddMember,
   onUpdateMember,
+  onDeleteMember,
   sessions = [],
   attendances = [],
   justifications = [],
@@ -57,6 +59,7 @@ export const MemberManagement: React.FC<MemberManagementProps> = ({
   const [copiedLink, setCopiedLink] = useState(false);
   const [editingMember, setEditingMember] = useState<Member | null>(null);
   const [showPasswordInModal, setShowPasswordInModal] = useState(false);
+  const [memberToDelete, setMemberToDelete] = useState<Member | null>(null);
 
   // Form state
   const [formData, setFormData] = useState<Partial<Member>>({
@@ -292,13 +295,27 @@ export const MemberManagement: React.FC<MemberManagementProps> = ({
                     </div>
                   </div>
 
-                  <button
-                    onClick={(e) => handleOpenEditModal(m, e)}
-                    className="text-slate-500 hover:text-amber-400 p-1.5 rounded-lg hover:bg-slate-800 transition"
-                    title="Editar Obreiro"
-                  >
-                    <Edit2 className="w-3.5 h-3.5" />
-                  </button>
+                  <div className="flex items-center space-x-1">
+                    <button
+                      onClick={(e) => handleOpenEditModal(m, e)}
+                      className="text-slate-500 hover:text-amber-400 p-1.5 rounded-lg hover:bg-slate-800 transition"
+                      title="Editar Obreiro"
+                    >
+                      <Edit2 className="w-3.5 h-3.5" />
+                    </button>
+                    {isSysAdmin && (
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setMemberToDelete(m);
+                        }}
+                        className="text-slate-500 hover:text-rose-400 p-1.5 rounded-lg hover:bg-rose-950/40 transition"
+                        title="Excluir Obreiro (Exclusivo Administrador 193245)"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </button>
+                    )}
+                  </div>
                 </div>
 
                 {/* Badges: Degree & Status */}
@@ -493,8 +510,23 @@ export const MemberManagement: React.FC<MemberManagementProps> = ({
                     </div>
                   </div>
 
-                  {/* Certificate Export Button */}
-                  <div className="pt-3 border-t border-slate-800 flex justify-end">
+                  {/* Certificate Export & Admin Delete Button */}
+                  <div className="pt-3 border-t border-slate-800 flex flex-wrap items-center justify-between gap-2">
+                    {isSysAdmin ? (
+                      <button
+                        onClick={() => {
+                          const target = selectedMember;
+                          setSelectedMember(null);
+                          setMemberToDelete(target);
+                        }}
+                        className="bg-rose-950/70 hover:bg-rose-900 text-rose-300 border border-rose-800/80 font-semibold text-xs px-3.5 py-2 rounded-lg flex items-center space-x-1.5 transition"
+                        title="Excluir Obreiro (Exclusivo Administrador 193245)"
+                      >
+                        <Trash2 className="w-4 h-4 text-rose-400" />
+                        <span>Excluir Obreiro</span>
+                      </button>
+                    ) : <div />}
+
                     <button
                       onClick={() => {
                         const lastSession = sessions[0];
@@ -518,13 +550,15 @@ export const MemberManagement: React.FC<MemberManagementProps> = ({
 
       {/* Modal Add/Edit Member Form */}
       {isModalOpen && (
-        <div className="fixed inset-0 z-50 bg-slate-950/85 backdrop-blur-sm flex flex-col items-center justify-start sm:justify-center p-2 sm:p-4 overflow-y-auto overscroll-contain">
-          <div className="bg-slate-900 border border-slate-800 rounded-2xl max-w-lg w-full my-auto text-slate-200 shadow-2xl flex flex-col max-h-[92vh] overflow-hidden">
-            <div className="flex items-center justify-between border-b border-slate-800 p-4 sm:p-5 shrink-0 bg-slate-900/95">
+        <div className="fixed inset-0 z-50 bg-slate-950/85 backdrop-blur-sm flex items-center justify-center p-2 sm:p-4 overflow-y-auto">
+          <div className="bg-slate-900 border border-slate-800 rounded-2xl max-w-lg w-full text-slate-200 shadow-2xl flex flex-col max-h-[90vh] overflow-hidden my-auto">
+            {/* Pinned Header */}
+            <div className="flex items-center justify-between border-b border-slate-800 p-4 sm:p-5 shrink-0 bg-slate-900/95 z-10">
               <h3 className="font-serif-masonic text-base sm:text-lg font-bold text-amber-200">
                 {editingMember ? 'Editar Obreiro' : 'Cadastrar Novo Obreiro'}
               </h3>
               <button
+                type="button"
                 onClick={() => setIsModalOpen(false)}
                 className="text-slate-400 hover:text-slate-100 p-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 transition"
               >
@@ -532,289 +566,397 @@ export const MemberManagement: React.FC<MemberManagementProps> = ({
               </button>
             </div>
 
-            <div className="p-4 sm:p-6 overflow-y-auto flex-1 overscroll-contain">
-              <form onSubmit={handleSubmit} className="space-y-4 text-xs">
-              <div>
-                <label className="block text-slate-300 font-medium mb-1">
-                  Nome Completo * <span className="text-[10px] text-amber-400 font-normal">(EM MAIÚSCULO)</span>
-                </label>
-                <input
-                  type="text"
-                  required
-                  value={formData.fullName || ''}
-                  onChange={(e) => setFormData({ ...formData, fullName: formatFullName(e.target.value) })}
-                  placeholder="JOAQUIM SILVA DE OLIVEIRA"
-                  className="w-full bg-slate-950 border border-slate-800 rounded-lg p-2.5 text-slate-200 focus:outline-none focus:border-amber-500 uppercase font-semibold tracking-wide"
-                />
-              </div>
-
-              <div className="grid grid-cols-2 gap-3">
+            {/* Form with Scrollable Body and Pinned Footer */}
+            <form onSubmit={handleSubmit} className="flex flex-col flex-1 min-h-0 overflow-hidden">
+              <div className="p-4 sm:p-6 overflow-y-auto flex-1 min-h-0 space-y-4 text-xs overscroll-contain">
                 <div>
-                  <label className="block text-slate-300 font-medium mb-1">CIM (Nº Maçônico) *</label>
+                  <label className="block text-slate-300 font-medium mb-1">
+                    Nome Completo * <span className="text-[10px] text-amber-400 font-normal">(EM MAIÚSCULO)</span>
+                  </label>
                   <input
                     type="text"
                     required
-                    value={formData.cim || ''}
-                    onChange={(e) => setFormData({ ...formData, cim: formatCIM(e.target.value) })}
-                    placeholder="184920"
-                    className="w-full bg-slate-950 border border-slate-800 rounded-lg p-2.5 text-slate-200 focus:outline-none focus:border-amber-500 font-mono font-bold"
+                    value={formData.fullName || ''}
+                    onChange={(e) => setFormData({ ...formData, fullName: formatFullName(e.target.value) })}
+                    placeholder="JOAQUIM SILVA DE OLIVEIRA"
+                    className="w-full bg-slate-950 border border-slate-800 rounded-lg p-2.5 text-slate-200 focus:outline-none focus:border-amber-500 uppercase font-semibold tracking-wide"
                   />
                 </div>
 
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-slate-300 font-medium mb-1">CIM (Nº Maçônico) *</label>
+                    <input
+                      type="text"
+                      required
+                      value={formData.cim || ''}
+                      onChange={(e) => setFormData({ ...formData, cim: formatCIM(e.target.value) })}
+                      placeholder="184920"
+                      className="w-full bg-slate-950 border border-slate-800 rounded-lg p-2.5 text-slate-200 focus:outline-none focus:border-amber-500 font-mono font-bold"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-slate-300 font-medium mb-1">CPF</label>
+                    <input
+                      type="text"
+                      maxLength={14}
+                      value={formData.cpf || ''}
+                      onChange={(e) => setFormData({ ...formData, cpf: formatCPF(e.target.value) })}
+                      placeholder="000.000.000-00"
+                      className="w-full bg-slate-950 border border-slate-800 rounded-lg p-2.5 text-slate-200 focus:outline-none focus:border-amber-500 font-mono"
+                    />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-slate-300 font-medium mb-1">Grau Atual</label>
+                    <select
+                      value={formData.degree || 'Aprendiz'}
+                      onChange={(e) => {
+                        const deg = e.target.value as MasonicDegree;
+                        setFormData({
+                          ...formData,
+                          degree: deg,
+                          degreeLevel: deg === 'Mestre' ? 3 : deg === 'Companheiro' ? 2 : 1,
+                          currentOfficerRole: deg === 'Mestre' ? formData.currentOfficerRole : undefined,
+                        });
+                      }}
+                      className="w-full bg-slate-950 border border-slate-800 rounded-lg p-2.5 text-slate-200 focus:outline-none focus:border-amber-500"
+                    >
+                      <option value="Aprendiz">Aprendiz (1º)</option>
+                      <option value="Companheiro">Companheiro (2º)</option>
+                      <option value="Mestre">Mestre (3º)</option>
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="block text-slate-300 font-medium mb-1">Status do Obreiro</label>
+                    <select
+                      value={formData.status || 'Regular'}
+                      onChange={(e) => setFormData({ ...formData, status: e.target.value as MemberStatus })}
+                      className="w-full bg-slate-950 border border-slate-800 rounded-lg p-2.5 text-slate-200 focus:outline-none focus:border-amber-500"
+                    >
+                      <option value="Regular">Regular</option>
+                      <option value="Remido">Remido</option>
+                      <option value="Emérito">Emérito</option>
+                      <option value="Licenciado">Licenciado</option>
+                      <option value="Placet">Placet (Adormecido)</option>
+                    </select>
+                  </div>
+                </div>
+
+                {!isSysAdmin && (
+                  <div className="p-2.5 bg-slate-950/70 border border-slate-800/80 rounded-lg text-[11px] text-slate-400 leading-relaxed flex items-start space-x-2">
+                    <AlertCircle className="w-4 h-4 text-amber-400 shrink-0 mt-0.5" />
+                    <span>
+                      <strong className="text-amber-300">Regimento Maçônico:</strong> Não existe "ex-maçom". Obreiros não podem ser apagados do sistema, apenas ter seu status modificado (ex: Placet, Licenciado, Remido, Emérito). A exclusão técnica de cadastros é prerrogativa exclusiva da Administração Geral.
+                    </span>
+                  </div>
+                )}
+
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-slate-300 font-medium mb-1">E-mail</label>
+                    <input
+                      type="email"
+                      value={formData.email || ''}
+                      onChange={(e) => setFormData({ ...formData, email: e.target.value.toLowerCase().trim() })}
+                      placeholder="obreiro@loja.org.br"
+                      className="w-full bg-slate-950 border border-slate-800 rounded-lg p-2.5 text-slate-200 focus:outline-none focus:border-amber-500 lowercase"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-slate-300 font-medium mb-1">Telefone / WhatsApp</label>
+                    <input
+                      type="text"
+                      maxLength={15}
+                      value={formData.phone || ''}
+                      onChange={(e) => setFormData({ ...formData, phone: formatPhone(e.target.value) })}
+                      placeholder="(16) 99999-9999"
+                      className="w-full bg-slate-950 border border-slate-800 rounded-lg p-2.5 text-slate-200 focus:outline-none focus:border-amber-500 font-mono"
+                    />
+                  </div>
+                </div>
+
                 <div>
-                  <label className="block text-slate-300 font-medium mb-1">CPF</label>
+                  <label className="block text-slate-300 font-medium mb-1">Membro Desde (Iniciação)</label>
                   <input
-                    type="text"
-                    maxLength={14}
-                    value={formData.cpf || ''}
-                    onChange={(e) => setFormData({ ...formData, cpf: formatCPF(e.target.value) })}
-                    placeholder="000.000.000-00"
-                    className="w-full bg-slate-950 border border-slate-800 rounded-lg p-2.5 text-slate-200 focus:outline-none focus:border-amber-500 font-mono"
-                  />
-                </div>
-              </div>
-
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-slate-300 font-medium mb-1">Grau Atual</label>
-                  <select
-                    value={formData.degree || 'Aprendiz'}
-                    onChange={(e) => setFormData({ ...formData, degree: e.target.value as MasonicDegree })}
+                    type="date"
+                    value={formData.joinedDate || ''}
+                    onChange={(e) => setFormData({ ...formData, joinedDate: e.target.value })}
                     className="w-full bg-slate-950 border border-slate-800 rounded-lg p-2.5 text-slate-200 focus:outline-none focus:border-amber-500"
-                  >
-                    <option value="Aprendiz">Aprendiz (1º)</option>
-                    <option value="Companheiro">Companheiro (2º)</option>
-                    <option value="Mestre">Mestre (3º)</option>
-                  </select>
-                </div>
-
-                <div>
-                  <label className="block text-slate-300 font-medium mb-1">Status do Obreiro</label>
-                  <select
-                    value={formData.status || 'Regular'}
-                    onChange={(e) => setFormData({ ...formData, status: e.target.value as MemberStatus })}
-                    className="w-full bg-slate-950 border border-slate-800 rounded-lg p-2.5 text-slate-200 focus:outline-none focus:border-amber-500"
-                  >
-                    <option value="Regular">Regular</option>
-                    <option value="Remido">Remido</option>
-                    <option value="Emérito">Emérito</option>
-                    <option value="Licenciado">Licenciado</option>
-                    <option value="Placet">Placet (Adormecido)</option>
-                  </select>
-                </div>
-              </div>
-
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-slate-300 font-medium mb-1">E-mail</label>
-                  <input
-                    type="email"
-                    value={formData.email || ''}
-                    onChange={(e) => setFormData({ ...formData, email: e.target.value.toLowerCase().trim() })}
-                    placeholder="obreiro@loja.org.br"
-                    className="w-full bg-slate-950 border border-slate-800 rounded-lg p-2.5 text-slate-200 focus:outline-none focus:border-amber-500 lowercase"
                   />
                 </div>
 
                 <div>
-                  <label className="block text-slate-300 font-medium mb-1">Telefone / WhatsApp</label>
-                  <input
-                    type="text"
-                    maxLength={15}
-                    value={formData.phone || ''}
-                    onChange={(e) => setFormData({ ...formData, phone: formatPhone(e.target.value) })}
-                    placeholder="(16) 99999-9999"
-                    className="w-full bg-slate-950 border border-slate-800 rounded-lg p-2.5 text-slate-200 focus:outline-none focus:border-amber-500 font-mono"
-                  />
+                  <label className="block text-slate-300 font-medium mb-1">Cargo na Loja (Opcional)</label>
+                  {formData.degree !== 'Mestre' ? (
+                    <div className="bg-slate-950 border border-slate-800 rounded-lg p-2.5 text-xs text-slate-400">
+                      Cargos em Loja e permissões de gestão/QR Code são privativos a Mestres Maçons (3º Grau).
+                    </div>
+                  ) : (
+                    <select
+                      value={formData.currentOfficerRole || ''}
+                      onChange={(e) => setFormData({ ...formData, currentOfficerRole: (e.target.value as LodgeOfficerRole) || undefined })}
+                      className="w-full bg-slate-950 border border-slate-800 rounded-lg p-2.5 text-slate-200 focus:outline-none focus:border-amber-500"
+                    >
+                      <option value="">Nenhum / Obreiro do Quadro</option>
+                      <option value="Venerável Mestre">Venerável Mestre (Gestão e Exibição de QR Code)</option>
+                      <option value="Secretário">Secretário (Gestão e Exibição de QR Code)</option>
+                      <option value="Chanceler">Chanceler (Gestão e Exibição de QR Code)</option>
+                      <option value="1º Vigilante">1º Vigilante</option>
+                      <option value="2º Vigilante">2º Vigilante</option>
+                      <option value="Orador">Orador</option>
+                      <option value="Tesoureiro">Tesoureiro</option>
+                      <option value="Mestre de Cerimônias">Mestre de Cerimônias</option>
+                      <option value="Guarda do Templo">Guarda do Templo</option>
+                      <option value="Hospedeiro">Hospedeiro</option>
+                    </select>
+                  )}
+
+                  {/* Dynamic Officer Role Permissions Card */}
+                  {formData.degree === 'Mestre' && formData.currentOfficerRole && (
+                    <div className={`mt-2.5 rounded-xl p-3.5 border space-y-2 text-xs transition ${
+                      ADMIN_OFFICER_ROLES.includes(formData.currentOfficerRole)
+                        ? 'bg-amber-950/40 border-amber-500/50 text-amber-200'
+                        : 'bg-slate-950/60 border-slate-800 text-slate-300'
+                    }`}>
+                      <div className="flex items-center space-x-2 font-bold text-xs">
+                        <ShieldCheck className={`w-4 h-4 ${ADMIN_OFFICER_ROLES.includes(formData.currentOfficerRole) ? 'text-amber-400' : 'text-slate-400'}`} />
+                        <span>
+                          {ADMIN_OFFICER_ROLES.includes(formData.currentOfficerRole)
+                            ? `Permissões de Gestão Herdados: ${formData.currentOfficerRole}`
+                            : `Cargo Regimental: ${formData.currentOfficerRole}`}
+                        </span>
+                      </div>
+
+                      {ADMIN_OFFICER_ROLES.includes(formData.currentOfficerRole) ? (
+                        <div className="space-y-1.5 text-[11px] leading-relaxed pt-1">
+                          <p className="text-amber-300 font-semibold">
+                            {OFFICER_PERMISSIONS_MAP[formData.currentOfficerRole]?.description}
+                          </p>
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5 pt-1 text-emerald-300 font-medium">
+                            <span className="flex items-center space-x-1">
+                              <CheckCircle className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+                              <span>Abertura / Início de Novas Sessões</span>
+                            </span>
+                            <span className="flex items-center space-x-1">
+                              <QrCode className="w-3.5 h-3.5 text-amber-400 shrink-0" />
+                              <span>Projeção de QR Code e Token no Templo</span>
+                            </span>
+                            <span className="flex items-center space-x-1">
+                              <CheckCircle className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+                              <span>Chamada Manual e Registro de Visitantes</span>
+                            </span>
+                            <span className="flex items-center space-x-1">
+                              <CheckCircle className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+                              <span>Abonos e Aprovação de Justificativas</span>
+                            </span>
+                          </div>
+                        </div>
+                      ) : (
+                        <p className="text-[11px] text-slate-400 leading-relaxed">
+                          Responsabilidades ritualísticas no Templo durante os Trabalhos. Acesso a sessões e atas vinculado ao Grau Maçônico ({formData.degree || 'Aprendiz'}).
+                        </p>
+                      )}
+                    </div>
+                  )}
                 </div>
-              </div>
 
-              <div>
-                <label className="block text-slate-300 font-medium mb-1">Membro Desde (Iniciação)</label>
-                <input
-                  type="date"
-                  value={formData.joinedDate || ''}
-                  onChange={(e) => setFormData({ ...formData, joinedDate: e.target.value })}
-                  className="w-full bg-slate-950 border border-slate-800 rounded-lg p-2.5 text-slate-200 focus:outline-none focus:border-amber-500"
-                />
-              </div>
+                {/* Foto do Obreiro */}
+                <div className="bg-slate-950/80 border border-slate-800 rounded-xl p-3.5 space-y-2.5">
+                  <label className="block text-slate-300 font-semibold text-xs flex items-center justify-between">
+                    <span>Foto do Obreiro</span>
+                    <span className="text-[10px] text-slate-400 font-normal">Faça upload ou informe um link</span>
+                  </label>
 
-              <div>
-                <label className="block text-slate-300 font-medium mb-1">Cargo na Loja (Opcional)</label>
-                <select
-                  value={formData.currentOfficerRole || ''}
-                  onChange={(e) => setFormData({ ...formData, currentOfficerRole: (e.target.value as LodgeOfficerRole) || undefined })}
-                  className="w-full bg-slate-950 border border-slate-800 rounded-lg p-2.5 text-slate-200 focus:outline-none focus:border-amber-500"
-                >
-                  <option value="">Nenhum / Obreiro do Quadro</option>
-                  <option value="Venerável Mestre">Venerável Mestre</option>
-                  <option value="1º Vigilante">1º Vigilante</option>
-                  <option value="2º Vigilante">2º Vigilante</option>
-                  <option value="Orador">Orador</option>
-                  <option value="Secretário">Secretário</option>
-                  <option value="Tesoureiro">Tesoureiro</option>
-                  <option value="Chanceler">Chanceler</option>
-                  <option value="Mestre de Cerimônias">Mestre de Cerimônias</option>
-                  <option value="Guarda do Templo">Guarda do Templo</option>
-                  <option value="Hospedeiro">Hospedeiro</option>
-                </select>
+                  <div className="flex items-center space-x-3">
+                    <img
+                      src={getMemberPhotoUrl(formData.photoUrl)}
+                      alt="Foto do Obreiro"
+                      className="w-14 h-14 rounded-full object-cover ring-2 ring-amber-500/50 bg-slate-900 shrink-0"
+                    />
 
-                {/* Dynamic Officer Role Permissions Card */}
-                {formData.currentOfficerRole && (
-                  <div className={`mt-2.5 rounded-xl p-3.5 border space-y-2 text-xs transition ${
-                    ADMIN_OFFICER_ROLES.includes(formData.currentOfficerRole)
-                      ? 'bg-amber-950/40 border-amber-500/50 text-amber-200'
-                      : 'bg-slate-950/60 border-slate-800 text-slate-300'
-                  }`}>
-                    <div className="flex items-center space-x-2 font-bold text-xs">
-                      <ShieldCheck className={`w-4 h-4 ${ADMIN_OFFICER_ROLES.includes(formData.currentOfficerRole) ? 'text-amber-400' : 'text-slate-400'}`} />
-                      <span>
-                        {ADMIN_OFFICER_ROLES.includes(formData.currentOfficerRole)
-                          ? `Permissões de Gestão Herdados: ${formData.currentOfficerRole}`
-                          : `Cargo Regimental: ${formData.currentOfficerRole}`}
+                    <div className="flex-1 space-y-2">
+                      <div className="flex items-center space-x-2">
+                        <label className="cursor-pointer bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 border border-amber-500/40 text-[11px] font-semibold px-3 py-1.5 rounded-lg transition flex items-center space-x-1.5 shadow-sm active:scale-95">
+                          <Upload className="w-3.5 h-3.5 text-amber-400" />
+                          <span>Carregar do Dispositivo</span>
+                          <input
+                            type="file"
+                            accept="image/*"
+                            className="hidden"
+                            onChange={(e) => {
+                              const file = e.target.files?.[0];
+                              if (file) {
+                                const reader = new FileReader();
+                                reader.onloadend = () => {
+                                  setFormData({ ...formData, photoUrl: reader.result as string });
+                                };
+                                reader.readAsDataURL(file);
+                              }
+                            }}
+                          />
+                        </label>
+
+                        {formData.photoUrl && formData.photoUrl !== DEFAULT_NEUTRAL_AVATAR && (
+                          <button
+                            type="button"
+                            onClick={() => setFormData({ ...formData, photoUrl: DEFAULT_NEUTRAL_AVATAR })}
+                            className="bg-slate-800 hover:bg-slate-700 text-slate-300 text-[11px] px-2.5 py-1.5 rounded-lg transition flex items-center space-x-1"
+                            title="Remover foto personalizada"
+                          >
+                            <Trash2 className="w-3 h-3 text-rose-400" />
+                            <span>Remover</span>
+                          </button>
+                        )}
+                      </div>
+
+                      <input
+                        type="text"
+                        value={formData.photoUrl || ''}
+                        onChange={(e) => setFormData({ ...formData, photoUrl: e.target.value })}
+                        placeholder="Ou cole a URL da imagem (https://...)"
+                        className="w-full bg-slate-900 border border-slate-800 rounded-lg px-2.5 py-1.5 text-[11px] text-slate-200 placeholder-slate-600 focus:outline-none focus:border-amber-500 font-mono"
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                {isSysAdmin && (
+                  <div>
+                    <div className="flex items-center justify-between mb-1">
+                      <label className="block text-slate-300 font-medium">
+                        Senha de Acesso do Obreiro
+                      </label>
+                      <span className="text-[10px] font-mono text-amber-400 bg-amber-950/60 border border-amber-800/60 px-2 py-0.5 rounded flex items-center space-x-1">
+                        <Lock className="w-3 h-3 text-amber-400" />
+                        <span>Visível somente ao Administrador 193245</span>
                       </span>
                     </div>
-
-                    {ADMIN_OFFICER_ROLES.includes(formData.currentOfficerRole) ? (
-                      <div className="space-y-1.5 text-[11px] leading-relaxed pt-1">
-                        <p className="text-amber-300 font-semibold">
-                          {OFFICER_PERMISSIONS_MAP[formData.currentOfficerRole]?.description}
-                        </p>
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5 pt-1 text-emerald-300 font-medium">
-                          <span className="flex items-center space-x-1">
-                            <CheckCircle className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
-                            <span>Abertura / Início de Novas Sessões</span>
-                          </span>
-                          <span className="flex items-center space-x-1">
-                            <QrCode className="w-3.5 h-3.5 text-amber-400 shrink-0" />
-                            <span>Projeção de QR Code e Token no Templo</span>
-                          </span>
-                          <span className="flex items-center space-x-1">
-                            <CheckCircle className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
-                            <span>Chamada Manual e Registro de Visitantes</span>
-                          </span>
-                          <span className="flex items-center space-x-1">
-                            <CheckCircle className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
-                            <span>Abonos e Aprovação de Justificativas</span>
-                          </span>
-                        </div>
-                      </div>
-                    ) : (
-                      <p className="text-[11px] text-slate-400 leading-relaxed">
-                        Responsabilidades ritualísticas no Templo durante os Trabalhos. Acesso a sessões e atas vinculado ao Grau Maçônico ({formData.degree || 'Aprendiz'}).
-                      </p>
-                    )}
+                    <div className="relative">
+                      <input
+                        type={showPasswordInModal ? 'text' : 'password'}
+                        value={formData.password || ''}
+                        onChange={(e) => setFormData({ ...formData, password: e.target.value })}
+                        placeholder="Senha de acesso ao portal (Padrão: 123456)"
+                        className="w-full bg-slate-950 border border-slate-800 rounded-lg p-2.5 pr-10 text-slate-200 focus:outline-none focus:border-amber-500 font-mono"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowPasswordInModal(!showPasswordInModal)}
+                        className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-200 transition"
+                        title={showPasswordInModal ? 'Ocultar senha' : 'Exibir senha'}
+                      >
+                        {showPasswordInModal ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                      </button>
+                    </div>
                   </div>
                 )}
               </div>
 
-              {/* Foto do Obreiro */}
-              <div className="bg-slate-950/80 border border-slate-800 rounded-xl p-3.5 space-y-2.5">
-                <label className="block text-slate-300 font-semibold text-xs flex items-center justify-between">
-                  <span>Foto do Obreiro</span>
-                  <span className="text-[10px] text-slate-400 font-normal">Faça upload ou informe um link</span>
-                </label>
+              {/* Pinned Action Buttons Footer */}
+              <div className="p-4 sm:p-5 border-t border-slate-800 shrink-0 bg-slate-900/95 flex items-center justify-between space-x-3 z-10">
+                {isSysAdmin && editingMember ? (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const target = editingMember;
+                      setIsModalOpen(false);
+                      setMemberToDelete(target);
+                    }}
+                    className="bg-rose-950/70 hover:bg-rose-900 text-rose-300 border border-rose-800/80 font-semibold px-3.5 py-2 rounded-lg flex items-center space-x-1.5 transition text-xs"
+                    title="Excluir Obreiro (Exclusivo Administrador 193245)"
+                  >
+                    <Trash2 className="w-3.5 h-3.5 text-rose-400" />
+                    <span>Excluir</span>
+                  </button>
+                ) : <div />}
 
-                <div className="flex items-center space-x-3">
-                  <img
-                    src={getMemberPhotoUrl(formData.photoUrl)}
-                    alt="Foto do Obreiro"
-                    className="w-14 h-14 rounded-full object-cover ring-2 ring-amber-500/50 bg-slate-900 shrink-0"
-                  />
-
-                  <div className="flex-1 space-y-2">
-                    <div className="flex items-center space-x-2">
-                      <label className="cursor-pointer bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 border border-amber-500/40 text-[11px] font-semibold px-3 py-1.5 rounded-lg transition flex items-center space-x-1.5 shadow-sm active:scale-95">
-                        <Upload className="w-3.5 h-3.5 text-amber-400" />
-                        <span>Carregar do Dispositivo</span>
-                        <input
-                          type="file"
-                          accept="image/*"
-                          className="hidden"
-                          onChange={(e) => {
-                            const file = e.target.files?.[0];
-                            if (file) {
-                              const reader = new FileReader();
-                              reader.onloadend = () => {
-                                setFormData({ ...formData, photoUrl: reader.result as string });
-                              };
-                              reader.readAsDataURL(file);
-                            }
-                          }}
-                        />
-                      </label>
-
-                      {formData.photoUrl && formData.photoUrl !== DEFAULT_NEUTRAL_AVATAR && (
-                        <button
-                          type="button"
-                          onClick={() => setFormData({ ...formData, photoUrl: DEFAULT_NEUTRAL_AVATAR })}
-                          className="bg-slate-800 hover:bg-slate-700 text-slate-300 text-[11px] px-2.5 py-1.5 rounded-lg transition flex items-center space-x-1"
-                          title="Remover foto personalizada"
-                        >
-                          <Trash2 className="w-3 h-3 text-rose-400" />
-                          <span>Remover</span>
-                        </button>
-                      )}
-                    </div>
-
-                    <input
-                      type="text"
-                      value={formData.photoUrl || ''}
-                      onChange={(e) => setFormData({ ...formData, photoUrl: e.target.value })}
-                      placeholder="Ou cole a URL da imagem (https://...)"
-                      className="w-full bg-slate-900 border border-slate-800 rounded-lg px-2.5 py-1.5 text-[11px] text-slate-200 placeholder-slate-600 focus:outline-none focus:border-amber-500 font-mono"
-                    />
-                  </div>
+                <div className="flex items-center space-x-2.5">
+                  <button
+                    type="button"
+                    onClick={() => setIsModalOpen(false)}
+                    className="bg-slate-800 hover:bg-slate-700 text-slate-300 font-medium px-4 py-2 rounded-lg text-xs transition"
+                  >
+                    Cancelar
+                  </button>
+                  <button
+                    type="submit"
+                    className="bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold px-5 py-2 rounded-lg shadow-md shadow-amber-500/20 text-xs transition flex items-center space-x-1.5"
+                  >
+                    <span>Salvar Obreiro</span>
+                  </button>
                 </div>
-              </div>
-
-              {isSysAdmin && (
-                <div>
-                  <div className="flex items-center justify-between mb-1">
-                    <label className="block text-slate-300 font-medium">
-                      Senha de Acesso do Obreiro
-                    </label>
-                    <span className="text-[10px] font-mono text-amber-400 bg-amber-950/60 border border-amber-800/60 px-2 py-0.5 rounded flex items-center space-x-1">
-                      <Lock className="w-3 h-3 text-amber-400" />
-                      <span>Visível somente ao Administrador 193245</span>
-                    </span>
-                  </div>
-                  <div className="relative">
-                    <input
-                      type={showPasswordInModal ? 'text' : 'password'}
-                      value={formData.password || ''}
-                      onChange={(e) => setFormData({ ...formData, password: e.target.value })}
-                      placeholder="Senha de acesso ao portal (Padrão: 123456)"
-                      className="w-full bg-slate-950 border border-slate-800 rounded-lg p-2.5 pr-10 text-slate-200 focus:outline-none focus:border-amber-500 font-mono"
-                    />
-                    <button
-                      type="button"
-                      onClick={() => setShowPasswordInModal(!showPasswordInModal)}
-                      className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-200 transition"
-                      title={showPasswordInModal ? 'Ocultar senha' : 'Exibir senha'}
-                    >
-                      {showPasswordInModal ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                    </button>
-                  </div>
-                </div>
-              )}
-
-              <div className="pt-4 flex justify-end space-x-3 border-t border-slate-800">
-                <button
-                  type="button"
-                  onClick={() => setIsModalOpen(false)}
-                  className="bg-slate-800 hover:bg-slate-700 text-slate-300 font-medium px-4 py-2 rounded-lg"
-                >
-                  Cancelar
-                </button>
-                <button
-                  type="submit"
-                  className="bg-amber-500 hover:bg-amber-400 text-slate-950 font-semibold px-5 py-2 rounded-lg"
-                >
-                  Salvar Obreiro
-                </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* Confirmation Modal for Permanent Member Deletion (Exclusive to Admin 193245) */}
+      {memberToDelete && isSysAdmin && (
+        <div className="fixed inset-0 z-50 bg-slate-950/85 backdrop-blur-sm flex flex-col items-center justify-center p-4">
+          <div className="bg-slate-900 border border-rose-800/80 rounded-2xl max-w-md w-full p-6 text-slate-200 shadow-2xl space-y-4">
+            <div className="flex items-center space-x-3 text-rose-400 border-b border-slate-800 pb-3">
+              <div className="p-2 bg-rose-950/80 border border-rose-700/60 rounded-xl">
+                <Trash2 className="w-6 h-6 text-rose-400" />
+              </div>
+              <div>
+                <h3 className="font-serif-masonic text-base font-bold text-slate-100">
+                  Exclusão Definitiva de Obreiro
+                </h3>
+                <p className="text-[11px] text-amber-400 font-mono">
+                  Prerrogativa exclusiva do Administrador 193245
+                </p>
+              </div>
+            </div>
+
+            <div className="space-y-3 text-xs text-slate-300">
+              <p>
+                Você está prestes a excluir permanentemente o cadastro do irmão:
+              </p>
+              <div className="p-3 bg-slate-950 border border-slate-800 rounded-xl flex items-center space-x-3">
+                <img
+                  src={getMemberPhotoUrl(memberToDelete.photoUrl)}
+                  alt={memberToDelete.fullName}
+                  className="w-10 h-10 rounded-full object-cover ring-1 ring-slate-700 shrink-0"
+                />
+                <div>
+                  <h4 className="font-bold text-slate-100">{memberToDelete.fullName}</h4>
+                  <p className="text-[11px] text-amber-400/90 font-mono">
+                    CIM: {memberToDelete.cim} • Grau: {memberToDelete.degree}
+                  </p>
+                </div>
+              </div>
+              <p className="text-rose-300/90 text-[11px] leading-relaxed bg-rose-950/30 p-2.5 rounded-lg border border-rose-900/50">
+                ⚠️ Esta ação removerá o obreiro de forma definitiva do banco de dados na nuvem, juntamente com seus registros de chamadas e justificativas vinculadas.
+              </p>
+            </div>
+
+            <div className="pt-3 border-t border-slate-800 flex justify-end space-x-3">
+              <button
+                type="button"
+                onClick={() => setMemberToDelete(null)}
+                className="bg-slate-800 hover:bg-slate-700 text-slate-300 font-medium px-4 py-2 rounded-lg text-xs"
+              >
+                Cancelar
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  if (onDeleteMember && memberToDelete) {
+                    onDeleteMember(memberToDelete.id);
+                  }
+                  setMemberToDelete(null);
+                }}
+                className="bg-rose-600 hover:bg-rose-500 text-white font-bold px-4 py-2 rounded-lg text-xs transition shadow-lg shadow-rose-900/40"
+              >
+                Sim, Excluir Obreiro
+              </button>
             </div>
           </div>
         </div>

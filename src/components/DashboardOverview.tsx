@@ -36,6 +36,7 @@ interface DashboardOverviewProps {
   setActiveTab: (tab: string) => void;
   onQuickCheckIn: () => void;
   isCurrentUserCheckedIn: boolean;
+  forcePersonalView?: boolean;
 }
 
 export const DashboardOverview: React.FC<DashboardOverviewProps> = ({
@@ -50,18 +51,34 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({
   setActiveTab,
   onQuickCheckIn,
   isCurrentUserCheckedIn,
+  forcePersonalView = false,
 }) => {
   const isAdmin = isLodgeAdmin(currentUser);
   const [isScannerOpen, setIsScannerOpen] = useState(false);
 
-  // Calculate full lodge stats for active session (if admin)
+  // Calculate data STRICTLY for the active session (if any)
+  const activeSessionAttendances = activeSession
+    ? attendances.filter((att) => att.sessionId === activeSession.id)
+    : [];
+
+  const activeSessionVisitors = activeSession
+    ? visitors.filter((v) => v.sessionId === activeSession.id)
+    : [];
+
+  const activeSessionJustifications = activeSession
+    ? justifications.filter((j) => j.sessionId === activeSession.id)
+    : [];
+
+  const activeSessionPendingJustifications = activeSessionJustifications.filter(
+    (j) => j.status === 'Pendente'
+  );
+
+  // Calculate full lodge stats strictly for active session
   const stats = activeSession
     ? calculateSessionStats(activeSession, members, attendances, visitors, justifications)
     : null;
 
-  const pendingJustifications = justifications.filter((j) => j.status === 'Pendente');
-
-  // Calculate Personal Attendance Stats for non-admin user
+  // Calculate Personal Attendance Stats for user (applicable to all brethren including officers)
   const personalAttendance = calculateMemberAttendance(
     currentUser,
     sessions,
@@ -79,8 +96,11 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({
     ? canAccessSessionDegree(currentUser, activeSession.degreeLevel)
     : false;
 
-  // Render NORMAL MEMBER PERSONAL DASHBOARD
-  if (!isAdmin) {
+  // Decide if we should render Personal View (forced or if user is non-admin)
+  const isPersonalView = forcePersonalView || !isAdmin;
+
+  // Render MEMBER PERSONAL DASHBOARD ("Meu Painel do Obreiro")
+  if (isPersonalView) {
     return (
       <div className="space-y-6">
         {/* Member Profile Banner */}
@@ -463,38 +483,25 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({
             )}
           </div>
 
-          {/* Action CTAs */}
+          {/* Action Footer */}
           <div className="mt-6 pt-4 border-t border-slate-800/80 flex flex-wrap items-center justify-between gap-3">
-            <div className="flex flex-wrap items-center gap-3">
-              {isAdmin && (
-                <button
-                  onClick={() => setActiveTab('chamada_qr')}
-                  className="bg-amber-500 hover:bg-amber-400 text-slate-950 font-semibold px-4 py-2 rounded-lg text-xs flex items-center space-x-2 transition shadow-md shadow-amber-500/20"
-                >
-                  <QrCode className="w-4 h-4" />
-                  <span>Projetor QR Code / Painel do Chanceler</span>
-                </button>
-              )}
-
+            <div className="flex items-center space-x-2 text-xs text-slate-400">
               {isCurrentUserCheckedIn ? (
-                <div className="bg-emerald-950/80 border border-emerald-600/50 text-emerald-300 px-4 py-2 rounded-lg text-xs flex items-center space-x-2 font-medium">
+                <div className="inline-flex items-center space-x-1.5 text-xs text-emerald-400 font-medium">
                   <CheckCircle2 className="w-4 h-4 text-emerald-400" />
-                  <span>Sua presença foi confirmada nesta sessão!</span>
+                  <span>Sua presença foi confirmada nesta sessão</span>
                 </div>
               ) : (
-                <button
-                  onClick={() => setIsScannerOpen(true)}
-                  className="bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold px-4 py-2 rounded-lg text-xs flex items-center space-x-2 transition shadow-md shadow-amber-500/20"
-                >
-                  <QrCode className="w-4 h-4 text-slate-950" />
-                  <span>Confirmar Minha Presença (QR Code / Token)</span>
-                </button>
+                <div className="inline-flex items-center space-x-1.5 text-xs text-slate-400">
+                  <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+                  <span>Sessão em andamento no Templo</span>
+                </div>
               )}
             </div>
 
             <button
               onClick={() => setActiveTab('sessoes')}
-              className="text-xs text-amber-400 hover:text-amber-300 flex items-center space-x-1"
+              className="text-xs text-amber-400 hover:text-amber-300 flex items-center space-x-1 transition"
             >
               <span>Gerenciar Cargos e Detalhes da Sessão</span>
               <ArrowRight className="w-3.5 h-3.5" />
@@ -517,150 +524,189 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({
         </div>
       )}
 
-      {/* Quick Metrics Grid for Admin */}
+      {/* Quick Metrics Grid for Active Session */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        {/* Total Members Card */}
+        {/* Present Members in Active Session Card */}
         <div
-          onClick={() => setActiveTab('membros')}
-          className="bg-slate-900 border border-slate-800 hover:border-slate-700 rounded-xl p-4 transition cursor-pointer group"
+          onClick={() => {
+            if (activeSession) setActiveTab('chamada_qr');
+            else setActiveTab('sessoes');
+          }}
+          className="bg-slate-900 border border-slate-800 hover:border-emerald-500/50 rounded-xl p-4 transition cursor-pointer group"
         >
           <div className="flex items-center justify-between">
-            <span className="text-xs font-medium text-slate-400">Total do Quadro</span>
-            <div className="p-2 rounded-lg bg-blue-500/10 text-blue-400 group-hover:scale-110 transition">
+            <span className="text-xs font-medium text-slate-400">Presentes do Quadro</span>
+            <div className="p-2 rounded-lg bg-emerald-500/10 text-emerald-400 group-hover:scale-110 transition">
               <Users className="w-5 h-5" />
             </div>
           </div>
           <div className="mt-3">
-            <span className="text-2xl font-bold text-slate-100">{members.length}</span>
-            <span className="text-xs text-slate-400 ml-2">Obreiros Cadastrados</span>
+            <span className="text-2xl font-bold text-slate-100">
+              {activeSession ? (stats?.totalPresentMembers || 0) : 0}
+            </span>
+            <span className="text-xs text-slate-400 ml-2">
+              {activeSession ? `de ${stats?.totalEligible || 0} no Grau` : 'Sem Sessão Ativa'}
+            </span>
           </div>
           <div className="mt-2 text-[11px] text-slate-500 flex items-center justify-between pt-2 border-t border-slate-800/80">
-            <span>Regular: {members.filter((m) => m.status === 'Regular').length}</span>
-            <span>Remido/Emérito: {members.filter((m) => m.status === 'Remido' || m.status === 'Emérito').length}</span>
+            <span>{activeSession ? `${stats?.percentagePresent || 0}% de Quórum` : 'Nenhum registro ativo'}</span>
+            <span className="text-emerald-400 font-medium">
+              {activeSession ? `${activeSession.degree}` : '—'}
+            </span>
           </div>
         </div>
 
-        {/* Pending Justifications Card */}
+        {/* Pending Justifications for Active Session Card */}
         <div
           onClick={() => setActiveTab('justificativas')}
           className="bg-slate-900 border border-slate-800 hover:border-amber-500/50 rounded-xl p-4 transition cursor-pointer group"
         >
           <div className="flex items-center justify-between">
-            <span className="text-xs font-medium text-slate-400">Justificativas Pendentes</span>
+            <span className="text-xs font-medium text-slate-400">Justificativas na Sessão</span>
             <div className="p-2 rounded-lg bg-amber-500/10 text-amber-400 group-hover:scale-110 transition">
               <FileCheck2 className="w-5 h-5" />
             </div>
           </div>
           <div className="mt-3">
-            <span className="text-2xl font-bold text-amber-400">{pendingJustifications.length}</span>
-            <span className="text-xs text-slate-400 ml-2">Aguardando Análise</span>
+            <span className="text-2xl font-bold text-amber-400">
+              {activeSession ? activeSessionJustifications.length : 0}
+            </span>
+            <span className="text-xs text-slate-400 ml-2">
+              {activeSession
+                ? `${activeSessionPendingJustifications.length} Pendente(s)`
+                : 'Sem Sessão Ativa'}
+            </span>
           </div>
           <div className="mt-2 text-[11px] text-amber-500/80 flex items-center space-x-1 pt-2 border-t border-slate-800/80">
             <Clock className="w-3 h-3" />
-            <span>Análise de abonos do Chanceler/Secretário</span>
+            <span>{activeSession ? 'Abonos desta sessão' : 'Aguardando sessão'}</span>
           </div>
         </div>
 
-        {/* Inactivity Alerts Card */}
+        {/* Absences for Active Session Card */}
         <div
-          onClick={() => setActiveTab('relatorios')}
-          className={`bg-slate-900 border rounded-xl p-4 transition cursor-pointer group ${
-            inactivityAlerts.length > 0
-              ? 'border-rose-900/80 bg-rose-950/20 hover:border-rose-600'
-              : 'border-slate-800 hover:border-slate-700'
-          }`}
+          onClick={() => {
+            if (activeSession) setActiveTab('chamada_qr');
+            else setActiveTab('sessoes');
+          }}
+          className="bg-slate-900 border border-slate-800 hover:border-rose-500/50 rounded-xl p-4 transition cursor-pointer group"
         >
           <div className="flex items-center justify-between">
-            <span className="text-xs font-medium text-slate-400">Alertas de Inassiduidade</span>
+            <span className="text-xs font-medium text-slate-400">Ausentes na Sessão</span>
             <div className="p-2 rounded-lg bg-rose-500/10 text-rose-400 group-hover:scale-110 transition">
               <AlertTriangle className="w-5 h-5" />
             </div>
           </div>
           <div className="mt-3">
-            <span className={`text-2xl font-bold ${inactivityAlerts.length > 0 ? 'text-rose-400' : 'text-slate-100'}`}>
-              {inactivityAlerts.length}
+            <span className="text-2xl font-bold text-slate-100">
+              {activeSession ? (stats?.totalAbsent || 0) : 0}
             </span>
-            <span className="text-xs text-slate-400 ml-2">Irmão(s) c/ 3 Faltas Seguidas</span>
+            <span className="text-xs text-slate-400 ml-2">
+              {activeSession ? 'Obreiro(s) não registrado(s)' : 'Sem Sessão Ativa'}
+            </span>
           </div>
-          <div className="mt-2 text-[11px] text-rose-400/80 flex items-center space-x-1 pt-2 border-t border-slate-800/80">
-            <span>Conforme Art. do Regulamento Geral</span>
+          <div className="mt-2 text-[11px] text-slate-500 flex items-center justify-between pt-2 border-t border-slate-800/80">
+            <span>
+              {activeSession
+                ? `Faltas s/ justificativa: ${Math.max(0, (stats?.totalAbsent || 0) - (stats?.totalJustified || 0))}`
+                : 'Sem sessão ativa'}
+            </span>
           </div>
         </div>
 
-        {/* Visitors Logged Card */}
+        {/* Visitors Logged in Active Session Card */}
         <div
-          onClick={() => setActiveTab('visitantes')}
-          className="bg-slate-900 border border-slate-800 hover:border-slate-700 rounded-xl p-4 transition cursor-pointer group"
+          onClick={() => {
+            if (activeSession) setActiveTab('visitantes');
+            else setActiveTab('sessoes');
+          }}
+          className="bg-slate-900 border border-slate-800 hover:border-blue-500/50 rounded-xl p-4 transition cursor-pointer group"
         >
           <div className="flex items-center justify-between">
-            <span className="text-xs font-medium text-slate-400">Irmãos Visitantes</span>
-            <div className="p-2 rounded-lg bg-emerald-500/10 text-emerald-400 group-hover:scale-110 transition">
+            <span className="text-xs font-medium text-slate-400">Visitantes na Sessão</span>
+            <div className="p-2 rounded-lg bg-blue-500/10 text-blue-400 group-hover:scale-110 transition">
               <UserPlus className="w-5 h-5" />
             </div>
           </div>
           <div className="mt-3">
-            <span className="text-2xl font-bold text-slate-100">{visitors.length}</span>
-            <span className="text-xs text-slate-400 ml-2">Registrados na Sessão</span>
+            <span className="text-2xl font-bold text-slate-100">
+              {activeSession ? activeSessionVisitors.length : 0}
+            </span>
+            <span className="text-xs text-slate-400 ml-2">
+              {activeSession ? 'Registrados nesta Sessão' : 'Sem Sessão Ativa'}
+            </span>
           </div>
-          <div className="mt-2 text-[11px] text-slate-500 flex items-center justify-between pt-2 border-t border-slate-800/80">
-            <span>GOSP • GOB • GLESP • GOP • CMSB • COMAB</span>
+          <div className="mt-2 text-[11px] text-slate-500 flex items-center justify-between pt-2 border-t border-slate-800/80 truncate">
+            <span>
+              {activeSession && activeSessionVisitors.length > 0
+                ? activeSessionVisitors.map((v) => v.homeLodge || v.potencia).slice(0, 2).join(' • ')
+                : 'GOSP • GOB • GLESP • GOP'}
+            </span>
           </div>
         </div>
       </div>
 
-      {/* Critical Regimental Alert Warning Bar (if 3 consecutive absences exist) */}
-      {inactivityAlerts.length > 0 && (
-        <div className="bg-rose-950/40 border border-rose-800/60 rounded-xl p-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-          <div className="flex items-start space-x-3">
-            <AlertTriangle className="w-5 h-5 text-rose-400 shrink-0 mt-0.5" />
-            <div>
-              <h4 className="text-xs font-semibold text-rose-200 uppercase tracking-wider">
-                Aviso Regimental de Frequência Crítica
-              </h4>
-              <p className="text-xs text-rose-300/80 mt-0.5">
-                {inactivityAlerts.length} Irmão(s) atingiu 3 faltas consecutivas sem justificativa aprovada. Notificação automática sugerida à Secretaria.
-              </p>
-            </div>
-          </div>
-          <button
-            onClick={() => setActiveTab('relatorios')}
-            className="bg-rose-900/80 hover:bg-rose-800 text-rose-100 text-xs font-medium px-3 py-1.5 rounded-lg whitespace-nowrap transition"
-          >
-            Ver Detalhes do Alerta
-          </button>
-        </div>
-      )}
-
-      {/* Recent Activity & Members Quick List */}
+      {/* Active Session Activity & Administration Section */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Recent Attendance Log Snippet */}
+        {/* Recent Attendance Log Snippet (STRICTLY ACTIVE SESSION) */}
         <div className="lg:col-span-2 bg-slate-900 border border-slate-800 rounded-xl p-5">
           <div className="flex items-center justify-between mb-4">
-            <h3 className="font-serif-masonic text-base font-semibold text-amber-200">
-              Registros Recentes de Presença
-            </h3>
-            <button
-              onClick={() => setActiveTab('chamada_qr')}
-              className="text-xs text-amber-400 hover:underline"
-            >
-              Ver Lista Completa
-            </button>
+            <div className="flex items-center space-x-2">
+              <h3 className="font-serif-masonic text-base font-semibold text-amber-200">
+                Registros de Presença da Sessão Ativa
+              </h3>
+              {activeSession && (
+                <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-amber-500/20 text-amber-300 border border-amber-500/40">
+                  {activeSessionAttendances.length} Confirmados
+                </span>
+              )}
+            </div>
+            {activeSession && (
+              <button
+                onClick={() => setActiveTab('chamada_qr')}
+                className="text-xs text-amber-400 hover:underline flex items-center space-x-1"
+              >
+                <span>Projetor / Chamada</span>
+                <ArrowRight className="w-3 h-3" />
+              </button>
+            )}
           </div>
 
-          {(() => {
-            const validAttendances = attendances.filter((att) =>
-              sessions.some((s) => s.id === att.sessionId)
-            );
-
-            if (validAttendances.length === 0) {
-              return (
-                <p className="text-xs text-slate-500 py-6 text-center">Nenhum registro de presença efetuado hoje.</p>
-              );
-            }
-
-            return (
-              <div className="space-y-2.5">
-                {validAttendances.slice(-6).reverse().map((att) => {
+          {!activeSession ? (
+            <div className="py-10 text-center space-y-2 border border-dashed border-slate-800/80 rounded-xl bg-slate-950/30">
+              <Calendar className="w-8 h-8 text-slate-600 mx-auto" />
+              <p className="text-xs font-medium text-slate-400">Nenhuma sessão ativa no momento.</p>
+              <p className="text-[11px] text-slate-500 max-w-sm mx-auto">
+                Inicie ou agende uma reunião para acompanhar os registros e o quórum em tempo real.
+              </p>
+              <button
+                onClick={() => setActiveTab('sessoes')}
+                className="text-xs text-amber-400 hover:text-amber-300 font-semibold mt-1 inline-block"
+              >
+                Ir para Sessões da Loja →
+              </button>
+            </div>
+          ) : activeSessionAttendances.length === 0 ? (
+            <div className="py-10 text-center space-y-2 border border-dashed border-slate-800/80 rounded-xl bg-slate-950/30">
+              <QrCode className="w-8 h-8 text-slate-600 mx-auto" />
+              <p className="text-xs font-medium text-slate-400">Nenhum registro de presença efetuado nesta sessão até o momento.</p>
+              <p className="text-[11px] text-slate-500 max-w-sm mx-auto">
+                Exiba o QR Code no projetor do Templo ou realize a chamada manual dos obreiros presentes.
+              </p>
+              <button
+                onClick={() => setActiveTab('chamada_qr')}
+                className="bg-amber-500 hover:bg-amber-400 text-slate-950 text-xs font-semibold px-3 py-1.5 rounded-lg transition mt-2 inline-flex items-center space-x-1"
+              >
+                <QrCode className="w-3.5 h-3.5" />
+                <span>Abrir Projetor QR Code</span>
+              </button>
+            </div>
+          ) : (
+            <div className="space-y-2.5 max-h-[340px] overflow-y-auto pr-1">
+              {activeSessionAttendances
+                .slice()
+                .reverse()
+                .map((att) => {
                   const member = members.find((m) => m.id === att.memberId);
                   return (
                     <div
@@ -684,47 +730,83 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({
                       </div>
 
                       <div className="text-right">
-                        <span className={`inline-block px-2 py-0.5 rounded text-[10px] font-mono ${
-                          att.method === 'QR_CODE'
-                            ? 'bg-emerald-950 text-emerald-400 border border-emerald-800'
-                            : 'bg-blue-950 text-blue-400 border border-blue-800'
-                        }`}>
+                        <span
+                          className={`inline-block px-2 py-0.5 rounded text-[10px] font-mono ${
+                            att.method === 'QR_CODE'
+                              ? 'bg-emerald-950 text-emerald-400 border border-emerald-800'
+                              : 'bg-blue-950 text-blue-400 border border-blue-800'
+                          }`}
+                        >
                           {att.method === 'QR_CODE' ? 'QR CODE CELL' : 'CHAMADA MANUAL'}
                         </span>
                         <p className="text-[10px] text-slate-500 mt-0.5">
-                          {new Date(att.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                          {new Date(att.timestamp).toLocaleTimeString([], {
+                            hour: '2-digit',
+                            minute: '2-digit',
+                          })}
                         </p>
                       </div>
                     </div>
                   );
                 })}
-              </div>
-            );
-          })()}
+            </div>
+          )}
         </div>
 
-        {/* Administration Officers Side List */}
+        {/* Administration Officers of Active Session */}
         <div className="bg-slate-900 border border-slate-800 rounded-xl p-5">
-          <h3 className="font-serif-masonic text-base font-semibold text-amber-200 mb-4">
-            Administração da Loja
-          </h3>
-
-          <div className="space-y-3">
-            {['Venerável Mestre', '1º Vigilante', '2º Vigilante', 'Orador', 'Secretário', 'Chanceler'].map((role) => {
-              const officerMember = activeSession?.officers[role as keyof typeof activeSession.officers]
-                ? members.find((m) => m.id === activeSession.officers[role as keyof typeof activeSession.officers])
-                : members.find((m) => m.currentOfficerRole === role);
-
-              return (
-                <div key={role} className="flex items-center justify-between text-xs p-2 rounded bg-slate-950/40 border border-slate-800">
-                  <span className="text-amber-400/90 font-medium">{role}</span>
-                  <span className="text-slate-200 truncate max-w-[150px] font-mono">
-                    {officerMember ? officerMember.fullName.split(' ')[0] + ' ' + officerMember.fullName.split(' ').slice(-1) : 'Vago'}
-                  </span>
-                </div>
-              );
-            })}
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="font-serif-masonic text-base font-semibold text-amber-200">
+              Administração da Sessão
+            </h3>
+            {activeSession && (
+              <span className="text-[10px] font-mono text-slate-400">
+                {activeSession.type}
+              </span>
+            )}
           </div>
+
+          {!activeSession ? (
+            <div className="py-10 text-center space-y-2 border border-dashed border-slate-800/80 rounded-xl bg-slate-950/30">
+              <Building2 className="w-8 h-8 text-slate-600 mx-auto" />
+              <p className="text-xs text-slate-400">Nenhuma sessão ativa.</p>
+              <p className="text-[11px] text-slate-500">
+                Os cargos de administração são designados na abertura de cada sessão.
+              </p>
+            </div>
+          ) : (
+            <div className="space-y-3">
+              {[
+                'Venerável Mestre',
+                '1º Vigilante',
+                '2º Vigilante',
+                'Orador',
+                'Secretário',
+                'Chanceler',
+              ].map((role) => {
+                const officerId = activeSession.officers[role as keyof typeof activeSession.officers];
+                const officerMember = officerId
+                  ? members.find((m) => m.id === officerId)
+                  : members.find((m) => m.currentOfficerRole === role);
+
+                return (
+                  <div
+                    key={role}
+                    className="flex items-center justify-between text-xs p-2 rounded bg-slate-950/40 border border-slate-800"
+                  >
+                    <span className="text-amber-400/90 font-medium">{role}</span>
+                    <span className="text-slate-200 truncate max-w-[150px] font-mono">
+                      {officerMember
+                        ? officerMember.fullName.split(' ')[0] +
+                          ' ' +
+                          officerMember.fullName.split(' ').slice(-1)
+                        : 'Vago / Não escalado'}
+                    </span>
+                  </div>
+                );
+              })}
+            </div>
+          )}
         </div>
       </div>
 
