@@ -6,7 +6,6 @@ import {
   Eye,
   EyeOff,
   User,
-  UserPlus,
   ShieldCheck,
 } from 'lucide-react';
 import { Member } from '../types/masonic';
@@ -17,14 +16,12 @@ interface LoginScreenProps {
   members: Member[];
   onLogin: (member: Member) => void;
   onRegisterMember?: (member: Member) => void;
-  onOpenPublicRegistration?: () => void;
 }
 
 export const LoginScreen: React.FC<LoginScreenProps> = ({
   members,
   onLogin,
   onRegisterMember,
-  onOpenPublicRegistration,
 }) => {
   const [cimInput, setCimInput] = useState<string>('');
   const [passwordInput, setPasswordInput] = useState<string>('');
@@ -187,22 +184,6 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
             <ArrowRight className="w-4 h-4" />
           </button>
         </form>
-
-        {onOpenPublicRegistration && (
-          <div className="pt-4 border-t border-slate-800 text-center space-y-2.5">
-            <p className="text-[11px] text-slate-400">
-              Ainda não está cadastrado no sistema da Loja?
-            </p>
-            <button
-              type="button"
-              onClick={onOpenPublicRegistration}
-              className="w-full bg-slate-800/90 hover:bg-slate-800 text-amber-300 hover:text-amber-200 border border-amber-500/30 hover:border-amber-500/60 font-semibold text-xs py-3 px-4 rounded-xl transition flex items-center justify-center space-x-2 shadow-sm cursor-pointer"
-            >
-              <UserPlus className="w-4 h-4 text-amber-400" />
-              <span>Preencher Formulário de Inscrição</span>
-            </button>
-          </div>
-        )}
       </div>
     </div>
   );

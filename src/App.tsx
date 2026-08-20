@@ -342,7 +342,6 @@ export default function App() {
             setActiveTab('painel');
           }}
           onRegisterMember={handleAddMember}
-          onOpenPublicRegistration={() => setIsPublicRegistrationOpen(true)}
         />
 
         <PublicMemberRegistrationModal
