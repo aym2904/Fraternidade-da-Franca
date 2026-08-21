@@ -23,6 +23,7 @@ import { Member, MasonicDegree, MemberStatus, LodgeOfficerRole, Session, Attenda
 import { calculateMemberAttendance } from '../utils/masonicUtils';
 import { generateAttendanceCertificatePDF } from '../utils/pdfGenerator';
 import { DEFAULT_NEUTRAL_AVATAR, getMemberPhotoUrl } from '../utils/avatarUtils';
+import { compressImageFile } from '../utils/imageUtils';
 import { OFFICER_PERMISSIONS_MAP, ADMIN_OFFICER_ROLES, getOfficerPermissions, isSystemAdmin } from '../utils/authUtils';
 import { PublicMemberRegistrationModal } from './PublicMemberRegistrationModal';
 import { Share2, UserPlus, Copy, Check, Eye, EyeOff } from 'lucide-react';
@@ -793,14 +794,13 @@ export const MemberManagement: React.FC<MemberManagementProps> = ({
                             type="file"
                             accept="image/*"
                             className="hidden"
-                            onChange={(e) => {
+                            onChange={async (e) => {
                               const file = e.target.files?.[0];
                               if (file) {
-                                const reader = new FileReader();
-                                reader.onloadend = () => {
-                                  setFormData({ ...formData, photoUrl: reader.result as string });
-                                };
-                                reader.readAsDataURL(file);
+                                const compressed = await compressImageFile(file, 256, 0.75);
+                                if (compressed) {
+                                  setFormData({ ...formData, photoUrl: compressed });
+                                }
                               }
                             }}
                           />

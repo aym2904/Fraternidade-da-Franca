@@ -19,6 +19,7 @@ import {
 } from 'lucide-react';
 import { Member, MasonicDegree, MemberStatus, LodgeOfficerRole } from '../types/masonic';
 import { DEFAULT_NEUTRAL_AVATAR } from '../utils/avatarUtils';
+import { compressImageFile } from '../utils/imageUtils';
 import { formatFullName, cleanFullName, formatCIM, formatCPF, formatPhone, formatEmail } from '../utils/formatters';
 
 interface PublicMemberRegistrationModalProps {
@@ -80,14 +81,13 @@ export const PublicMemberRegistrationModal: React.FC<PublicMemberRegistrationMod
     window.open(`https://api.whatsapp.com/send?text=${text}`, '_blank');
   };
 
-  const handlePhotoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handlePhotoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        setFormData((prev) => ({ ...prev, photoUrl: reader.result as string }));
-      };
-      reader.readAsDataURL(file);
+      const compressedDataUrl = await compressImageFile(file, 256, 0.75);
+      if (compressedDataUrl) {
+        setFormData((prev) => ({ ...prev, photoUrl: compressedDataUrl }));
+      }
     }
   };
 

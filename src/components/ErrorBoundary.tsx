@@ -34,6 +34,7 @@ export class ErrorBoundary extends Component<Props, State> {
 
   private handleResetCache = () => {
     try {
+      localStorage.removeItem('masonic_members');
       localStorage.removeItem('masonic_sessions');
       localStorage.removeItem('masonic_attendances');
       localStorage.removeItem('masonic_visitors');

@@ -23,6 +23,7 @@ import { LoginScreen } from './components/LoginScreen';
 import { PublicMemberRegistrationModal } from './components/PublicMemberRegistrationModal';
 import { SupabaseStatusModal } from './components/SupabaseStatusModal';
 import { isLodgeAdmin, isSystemAdmin } from './utils/authUtils';
+import { safeSetItem, safeGetItem, safeRemoveItem, safeSaveMembers } from './utils/storageUtils';
 
 export default function App() {
   // Purge legacy test mock data from LocalStorage if present
@@ -284,34 +285,34 @@ export default function App() {
 
   // Persistence side effects
   useEffect(() => {
-    localStorage.setItem('masonic_members', JSON.stringify(members));
+    safeSaveMembers(members);
   }, [members]);
 
   useEffect(() => {
-    localStorage.setItem('masonic_sessions', JSON.stringify(sessions));
+    safeSetItem('masonic_sessions', JSON.stringify(sessions));
   }, [sessions]);
 
   useEffect(() => {
-    localStorage.setItem('masonic_attendances', JSON.stringify(attendances));
+    safeSetItem('masonic_attendances', JSON.stringify(attendances));
   }, [attendances]);
 
   useEffect(() => {
-    localStorage.setItem('masonic_visitors', JSON.stringify(visitors));
+    safeSetItem('masonic_visitors', JSON.stringify(visitors));
   }, [visitors]);
 
   useEffect(() => {
-    localStorage.setItem('masonic_justifications', JSON.stringify(justifications));
+    safeSetItem('masonic_justifications', JSON.stringify(justifications));
   }, [justifications]);
 
   useEffect(() => {
-    localStorage.setItem('masonic_balaustres', JSON.stringify(balaustres));
+    safeSetItem('masonic_balaustres', JSON.stringify(balaustres));
   }, [balaustres]);
 
   useEffect(() => {
     if (currentUser) {
-      localStorage.setItem('masonic_auth_user', JSON.stringify(currentUser));
+      safeSetItem('masonic_auth_user', JSON.stringify(currentUser));
     } else {
-      localStorage.removeItem('masonic_auth_user');
+      safeRemoveItem('masonic_auth_user');
     }
   }, [currentUser]);
 
@@ -359,12 +360,12 @@ export default function App() {
 
   const handleLogout = () => {
     setCurrentUser(null);
-    localStorage.removeItem('masonic_auth_user');
+    safeRemoveItem('masonic_auth_user');
   };
 
   const handleSelectUser = (m: Member) => {
     setCurrentUser(m);
-    localStorage.setItem('masonic_auth_user', JSON.stringify(m));
+    safeSetItem('masonic_auth_user', JSON.stringify(m));
   };
 
   const activeSession = sessions.find((s) => s.active);
