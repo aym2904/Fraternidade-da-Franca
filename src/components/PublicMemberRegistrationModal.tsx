@@ -18,7 +18,7 @@ import {
   ArrowRight,
 } from 'lucide-react';
 import { Member, MasonicDegree, MemberStatus, LodgeOfficerRole } from '../types/masonic';
-import { DEFAULT_NEUTRAL_AVATAR } from '../utils/avatarUtils';
+import { DEFAULT_NEUTRAL_AVATAR, getMemberPhotoUrl } from '../utils/avatarUtils';
 import { compressImageFile } from '../utils/imageUtils';
 import { formatFullName, cleanFullName, formatCIM, formatCPF, formatPhone, formatEmail } from '../utils/formatters';
 
@@ -47,7 +47,7 @@ export const PublicMemberRegistrationModal: React.FC<PublicMemberRegistrationMod
     joinedDate: new Date().toISOString().split('T')[0],
     phone: '',
     password: '',
-    photoUrl: DEFAULT_NEUTRAL_AVATAR,
+    photoUrl: '',
   });
 
   const [isSuccess, setIsSuccess] = useState(false);
@@ -103,6 +103,11 @@ export const PublicMemberRegistrationModal: React.FC<PublicMemberRegistrationMod
       return;
     }
 
+    if (!formData.photoUrl || formData.photoUrl === DEFAULT_NEUTRAL_AVATAR || !formData.photoUrl.trim()) {
+      setErrorMessage('A fotografia oficial do Obreiro (rosto com traje maçônico / gravata) é obrigatória para efetivação do cadastro.');
+      return;
+    }
+
     const newMember: Member = {
       id: `mem-${Date.now()}`,
       fullName: formattedFullName,
@@ -116,7 +121,7 @@ export const PublicMemberRegistrationModal: React.FC<PublicMemberRegistrationMod
       joinedDate: formData.joinedDate || new Date().toISOString().split('T')[0],
       phone: formData.phone ? formatPhone(formData.phone) : '',
       password: formData.password?.trim() || '123456',
-      photoUrl: formData.photoUrl || DEFAULT_NEUTRAL_AVATAR,
+      photoUrl: formData.photoUrl,
     };
 
     onAddMember(newMember);
@@ -127,6 +132,7 @@ export const PublicMemberRegistrationModal: React.FC<PublicMemberRegistrationMod
   const handleReset = () => {
     setIsSuccess(false);
     setRegisteredMember(null);
+    setErrorMessage(null);
     setFormData({
       fullName: '',
       cpf: '',
@@ -139,7 +145,7 @@ export const PublicMemberRegistrationModal: React.FC<PublicMemberRegistrationMod
       joinedDate: new Date().toISOString().split('T')[0],
       phone: '',
       password: '',
-      photoUrl: DEFAULT_NEUTRAL_AVATAR,
+      photoUrl: '',
     });
     onClose();
   };
@@ -226,15 +232,25 @@ export const PublicMemberRegistrationModal: React.FC<PublicMemberRegistrationMod
               )}
 
               {/* Photo Upload Section */}
-              <div className="bg-slate-950 border border-slate-800 rounded-xl p-4 flex flex-col sm:flex-row items-center space-y-3 sm:space-y-0 sm:space-x-4">
+              <div className={`bg-slate-950 border rounded-xl p-4 flex flex-col sm:flex-row items-center space-y-3 sm:space-y-0 sm:space-x-4 transition ${
+                formData.photoUrl && formData.photoUrl !== DEFAULT_NEUTRAL_AVATAR
+                  ? 'border-emerald-700/60 bg-emerald-950/20'
+                  : errorMessage && !formData.photoUrl
+                  ? 'border-rose-500/80 bg-rose-950/20 ring-1 ring-rose-500/40'
+                  : 'border-amber-500/40'
+              }`}>
                 <div className="relative group shrink-0">
                   <img
-                    src={formData.photoUrl}
+                    src={getMemberPhotoUrl(formData.photoUrl)}
                     alt="Fotografia do Obreiro"
-                    className="w-20 h-20 rounded-full object-cover ring-2 ring-amber-500/60 bg-slate-900"
+                    className={`w-20 h-20 rounded-full object-cover bg-slate-900 shadow-md ${
+                      formData.photoUrl && formData.photoUrl !== DEFAULT_NEUTRAL_AVATAR
+                        ? 'ring-2 ring-emerald-400'
+                        : 'ring-2 ring-amber-500/70 border border-dashed border-amber-400/80'
+                    }`}
                   />
                   <label className="absolute inset-0 rounded-full bg-black/60 flex items-center justify-center text-white opacity-0 group-hover:opacity-100 cursor-pointer transition">
-                    <Camera className="w-5 h-5" />
+                    <Camera className="w-6 h-6 text-amber-300" />
                     <input
                       type="file"
                       accept="image/*"
@@ -243,23 +259,62 @@ export const PublicMemberRegistrationModal: React.FC<PublicMemberRegistrationMod
                     />
                   </label>
                 </div>
-                <div className="space-y-1 text-center sm:text-left flex-1">
-                  <span className="text-xs font-bold text-amber-200 block">
-                    Fotografia Oficial (Rosto com Traje Maçônico / Gravata)
-                  </span>
-                  <p className="text-[11px] text-slate-400">
-                    Selecione uma foto de rosto da galeria do seu celular ou dispositivo.
-                  </p>
-                  <label className="inline-flex items-center space-x-1.5 bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 border border-amber-500/40 text-xs px-3.5 py-1.5 rounded-lg cursor-pointer transition mt-1 font-semibold">
-                    <Upload className="w-3.5 h-3.5 text-amber-400" />
-                    <span>Selecionar Foto da Galeria / Câmera</span>
-                    <input
-                      type="file"
-                      accept="image/*"
-                      onChange={handlePhotoUpload}
-                      className="hidden"
-                    />
-                  </label>
+                <div className="space-y-1.5 text-center sm:text-left flex-1">
+                  <div className="flex flex-wrap items-center justify-center sm:justify-start gap-2">
+                    <span className="text-xs font-bold text-slate-100">
+                      Fotografia Oficial (Rosto com Traje Maçônico / Gravata)
+                    </span>
+                    <span className="text-[10px] font-bold px-2 py-0.5 rounded uppercase font-mono tracking-wider bg-rose-950 text-rose-300 border border-rose-700/80">
+                      * Obrigatório
+                    </span>
+                  </div>
+
+                  {formData.photoUrl && formData.photoUrl !== DEFAULT_NEUTRAL_AVATAR ? (
+                    <p className="text-[11px] text-emerald-400 flex items-center justify-center sm:justify-start space-x-1 font-semibold">
+                      <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+                      <span>Fotografia anexada e pronta para o cadastro!</span>
+                    </p>
+                  ) : (
+                    <p className="text-[11px] text-amber-300/90">
+                      Anexe uma foto nítida de rosto com terno e gravata (da galeria do celular ou câmera).
+                    </p>
+                  )}
+
+                  <div className="flex items-center justify-center sm:justify-start gap-2 pt-1">
+                    <label className={`inline-flex items-center space-x-1.5 text-xs px-3.5 py-1.5 rounded-lg cursor-pointer transition font-semibold shadow-sm ${
+                      formData.photoUrl && formData.photoUrl !== DEFAULT_NEUTRAL_AVATAR
+                        ? 'bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700'
+                        : 'bg-amber-500 hover:bg-amber-400 text-slate-950 shadow-amber-500/20'
+                    }`}>
+                      {formData.photoUrl && formData.photoUrl !== DEFAULT_NEUTRAL_AVATAR ? (
+                        <>
+                          <Camera className="w-3.5 h-3.5 text-slate-300" />
+                          <span>Alterar Foto Selecionada</span>
+                        </>
+                      ) : (
+                        <>
+                          <Upload className="w-3.5 h-3.5 text-slate-950" />
+                          <span>Selecionar Foto da Galeria / Câmera *</span>
+                        </>
+                      )}
+                      <input
+                        type="file"
+                        accept="image/*"
+                        onChange={handlePhotoUpload}
+                        className="hidden"
+                      />
+                    </label>
+
+                    {formData.photoUrl && formData.photoUrl !== DEFAULT_NEUTRAL_AVATAR && (
+                      <button
+                        type="button"
+                        onClick={() => setFormData((prev) => ({ ...prev, photoUrl: '' }))}
+                        className="text-[11px] text-rose-400 hover:text-rose-300 bg-rose-950/60 border border-rose-800/60 px-2.5 py-1.5 rounded-lg transition"
+                      >
+                        Remover
+                      </button>
+                    )}
+                  </div>
                 </div>
               </div>
 

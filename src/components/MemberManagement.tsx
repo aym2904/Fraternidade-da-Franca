@@ -61,6 +61,7 @@ export const MemberManagement: React.FC<MemberManagementProps> = ({
   const [editingMember, setEditingMember] = useState<Member | null>(null);
   const [showPasswordInModal, setShowPasswordInModal] = useState(false);
   const [memberToDelete, setMemberToDelete] = useState<Member | null>(null);
+  const [formError, setFormError] = useState<string | null>(null);
 
   // Form state
   const [formData, setFormData] = useState<Partial<Member>>({
@@ -88,6 +89,7 @@ export const MemberManagement: React.FC<MemberManagementProps> = ({
   const handleOpenAddModal = () => {
     setEditingMember(null);
     setShowPasswordInModal(false);
+    setFormError(null);
     setFormData({
       fullName: '',
       cpf: '',
@@ -97,7 +99,7 @@ export const MemberManagement: React.FC<MemberManagementProps> = ({
       degreeLevel: 1,
       status: 'Regular',
       phone: '',
-      photoUrl: DEFAULT_NEUTRAL_AVATAR,
+      photoUrl: '',
       password: '123456',
     });
     setIsModalOpen(true);
@@ -107,15 +109,26 @@ export const MemberManagement: React.FC<MemberManagementProps> = ({
     e.stopPropagation();
     setEditingMember(m);
     setShowPasswordInModal(false);
+    setFormError(null);
     setFormData({ ...m });
     setIsModalOpen(true);
   };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    setFormError(null);
+
     const formattedFullName = cleanFullName(formData.fullName || '');
     const formattedCim = formatCIM(formData.cim || '');
-    if (!formattedFullName || !formattedCim) return;
+    if (!formattedFullName || !formattedCim) {
+      setFormError('Por favor, preencha o Nome Completo e o CIM do Obreiro.');
+      return;
+    }
+
+    if (!formData.photoUrl || formData.photoUrl === DEFAULT_NEUTRAL_AVATAR || !formData.photoUrl.trim()) {
+      setFormError('A fotografia oficial do Obreiro é obrigatória para o cadastro.');
+      return;
+    }
 
     let level: 1 | 2 | 3 = 1;
     if (formData.degree === 'Companheiro') level = 2;
@@ -131,7 +144,7 @@ export const MemberManagement: React.FC<MemberManagementProps> = ({
         email: formData.email ? formatEmail(formData.email) : '',
         phone: formData.phone ? formatPhone(formData.phone) : '',
         degreeLevel: level,
-        photoUrl: formData.photoUrl || DEFAULT_NEUTRAL_AVATAR,
+        photoUrl: formData.photoUrl,
         password: isSysAdmin
           ? (formData.password?.trim() || editingMember.password || '123456')
           : (editingMember.password || '123456'),
@@ -150,7 +163,7 @@ export const MemberManagement: React.FC<MemberManagementProps> = ({
         currentOfficerRole: formData.currentOfficerRole,
         joinedDate: formData.joinedDate || new Date().toISOString().split('T')[0],
         phone: formData.phone ? formatPhone(formData.phone) : '',
-        photoUrl: formData.photoUrl || DEFAULT_NEUTRAL_AVATAR,
+        photoUrl: formData.photoUrl,
         password: isSysAdmin ? (formData.password?.trim() || '123456') : '123456',
       };
       onAddMember(newMem);
@@ -570,6 +583,13 @@ export const MemberManagement: React.FC<MemberManagementProps> = ({
             {/* Form with Scrollable Body and Pinned Footer */}
             <form onSubmit={handleSubmit} className="flex flex-col flex-1 min-h-0 overflow-hidden">
               <div className="p-4 sm:p-6 overflow-y-auto flex-1 min-h-0 space-y-4 text-xs overscroll-contain">
+                {formError && (
+                  <div className="bg-rose-950/80 border border-rose-800 text-rose-300 text-xs p-3 rounded-xl flex items-center space-x-2">
+                    <AlertCircle className="w-4 h-4 shrink-0 text-rose-400" />
+                    <span>{formError}</span>
+                  </div>
+                )}
+
                 <div>
                   <label className="block text-slate-300 font-medium mb-1">
                     Nome Completo * <span className="text-[10px] text-amber-400 font-normal">(EM MAIÚSCULO)</span>
@@ -772,24 +792,61 @@ export const MemberManagement: React.FC<MemberManagementProps> = ({
                 </div>
 
                 {/* Foto do Obreiro */}
-                <div className="bg-slate-950/80 border border-slate-800 rounded-xl p-3.5 space-y-2.5">
-                  <label className="block text-slate-300 font-semibold text-xs flex items-center justify-between">
-                    <span>Foto do Obreiro</span>
-                    <span className="text-[10px] text-slate-400 font-normal">Faça upload ou informe um link</span>
-                  </label>
+                <div className={`bg-slate-950/80 border rounded-xl p-3.5 space-y-2.5 transition ${
+                  formData.photoUrl && formData.photoUrl !== DEFAULT_NEUTRAL_AVATAR
+                    ? 'border-emerald-700/60 bg-emerald-950/20'
+                    : formError && !formData.photoUrl
+                    ? 'border-rose-500/80 bg-rose-950/20 ring-1 ring-rose-500/40'
+                    : 'border-slate-800'
+                }`}>
+                  <div className="flex items-center justify-between">
+                    <label className="text-slate-300 font-semibold text-xs flex items-center space-x-1.5">
+                      <span>Fotografia Oficial do Obreiro</span>
+                      <span className="text-[10px] font-bold text-rose-400 bg-rose-950 border border-rose-800/80 px-1.5 py-0.2 rounded uppercase font-mono">
+                        * Obrigatória
+                      </span>
+                    </label>
+                    {formData.photoUrl && formData.photoUrl !== DEFAULT_NEUTRAL_AVATAR ? (
+                      <span className="text-[10px] text-emerald-400 font-semibold flex items-center space-x-1">
+                        <CheckCircle className="w-3 h-3 text-emerald-400" />
+                        <span>Foto anexada</span>
+                      </span>
+                    ) : (
+                      <span className="text-[10px] text-amber-400 font-normal">
+                        Rosto com terno/gravata
+                      </span>
+                    )}
+                  </div>
 
                   <div className="flex items-center space-x-3">
                     <img
                       src={getMemberPhotoUrl(formData.photoUrl)}
                       alt="Foto do Obreiro"
-                      className="w-14 h-14 rounded-full object-cover ring-2 ring-amber-500/50 bg-slate-900 shrink-0"
+                      className={`w-14 h-14 rounded-full object-cover bg-slate-900 shrink-0 ${
+                        formData.photoUrl && formData.photoUrl !== DEFAULT_NEUTRAL_AVATAR
+                          ? 'ring-2 ring-emerald-400'
+                          : 'ring-2 ring-amber-500/60 border border-dashed border-amber-400/80'
+                      }`}
                     />
 
                     <div className="flex-1 space-y-2">
                       <div className="flex items-center space-x-2">
-                        <label className="cursor-pointer bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 border border-amber-500/40 text-[11px] font-semibold px-3 py-1.5 rounded-lg transition flex items-center space-x-1.5 shadow-sm active:scale-95">
-                          <Upload className="w-3.5 h-3.5 text-amber-400" />
-                          <span>Carregar do Dispositivo</span>
+                        <label className={`cursor-pointer text-[11px] font-semibold px-3 py-1.5 rounded-lg transition flex items-center space-x-1.5 shadow-sm active:scale-95 ${
+                          formData.photoUrl && formData.photoUrl !== DEFAULT_NEUTRAL_AVATAR
+                            ? 'bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700'
+                            : 'bg-amber-500 hover:bg-amber-400 text-slate-950 shadow-amber-500/20'
+                        }`}>
+                          {formData.photoUrl && formData.photoUrl !== DEFAULT_NEUTRAL_AVATAR ? (
+                            <>
+                              <Camera className="w-3.5 h-3.5 text-slate-300" />
+                              <span>Alterar Foto</span>
+                            </>
+                          ) : (
+                            <>
+                              <Upload className="w-3.5 h-3.5 text-slate-950" />
+                              <span>Carregar do Dispositivo *</span>
+                            </>
+                          )}
                           <input
                             type="file"
                             accept="image/*"
@@ -809,9 +866,9 @@ export const MemberManagement: React.FC<MemberManagementProps> = ({
                         {formData.photoUrl && formData.photoUrl !== DEFAULT_NEUTRAL_AVATAR && (
                           <button
                             type="button"
-                            onClick={() => setFormData({ ...formData, photoUrl: DEFAULT_NEUTRAL_AVATAR })}
-                            className="bg-slate-800 hover:bg-slate-700 text-slate-300 text-[11px] px-2.5 py-1.5 rounded-lg transition flex items-center space-x-1"
-                            title="Remover foto personalizada"
+                            onClick={() => setFormData({ ...formData, photoUrl: '' })}
+                            className="bg-rose-950/60 hover:bg-rose-900/80 text-rose-300 border border-rose-800/60 text-[11px] px-2.5 py-1.5 rounded-lg transition flex items-center space-x-1"
+                            title="Remover foto"
                           >
                             <Trash2 className="w-3 h-3 text-rose-400" />
                             <span>Remover</span>
