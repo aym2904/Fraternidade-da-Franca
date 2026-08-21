@@ -366,7 +366,7 @@ export const SessionManagement: React.FC<SessionManagementProps> = ({
                     <div className="flex flex-wrap items-center gap-4 text-xs text-slate-400">
                       <span className="flex items-center space-x-1">
                         <Calendar className="w-3.5 h-3.5 text-amber-400" />
-                        <span>Data: {s.date.split('-').reverse().join('/')} às {s.time}h</span>
+                        <span>Data: {(s.date || '').split('-').reverse().join('/')} às {s.time}h</span>
                       </span>
                       <span className="flex items-center space-x-1">
                         <Building2 className="w-3.5 h-3.5 text-amber-400" />
@@ -454,14 +454,15 @@ export const SessionManagement: React.FC<SessionManagementProps> = ({
 
                   <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-2 text-[11px]">
                     {['Venerável Mestre', '1º Vigilante', '2º Vigilante', 'Orador', 'Secretário', 'Chanceler'].map((role) => {
-                      const memberId = s.officers[role as LodgeOfficerRole];
+                      const officersMap = s.officers || {};
+                      const memberId = (officersMap as any)[role];
                       const officer = members.find((m) => m.id === memberId);
 
                       return (
                         <div key={role} className="bg-slate-950 p-2 rounded border border-slate-800">
                           <p className="text-[10px] text-amber-400 font-medium truncate">{role}</p>
                           <p className="text-slate-200 font-mono truncate mt-0.5">
-                            {officer ? officer.fullName.split(' ')[0] + ' ' + officer.fullName.split(' ').slice(-1) : 'Vago'}
+                            {officer ? (officer.fullName || '').split(' ')[0] + ' ' + (officer.fullName || '').split(' ').slice(-1) : 'Vago'}
                           </p>
                         </div>
                       );

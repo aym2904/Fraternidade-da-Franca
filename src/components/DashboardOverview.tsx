@@ -22,6 +22,7 @@ import {
 import { Member, Session, AttendanceRecord, VisitorRecord, Justification, InactivityAlert } from '../types/masonic';
 import { calculateSessionStats, calculateMemberAttendance } from '../utils/masonicUtils';
 import { isLodgeAdmin, isSystemAdmin, getRoleBadgeLabel, canAccessSessionDegree } from '../utils/authUtils';
+import { getMemberPhotoUrl } from '../utils/avatarUtils';
 import { QrCodeScannerModal } from './QrCodeScannerModal';
 
 interface DashboardOverviewProps {
@@ -110,9 +111,9 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({
           <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 relative z-10">
             <div className="flex items-center space-x-4">
               <img
-                src={currentUser.photoUrl}
+                src={getMemberPhotoUrl(currentUser.photoUrl)}
                 alt={currentUser.fullName}
-                className="w-16 h-16 sm:w-20 sm:h-20 rounded-full object-cover ring-2 ring-amber-500/60 shadow-lg"
+                className="w-16 h-16 sm:w-20 sm:h-20 rounded-full object-cover ring-2 ring-amber-500/60 shadow-lg bg-slate-900"
               />
               <div>
                 <div className="flex flex-wrap items-center gap-2 mb-1">
@@ -143,7 +144,7 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({
 
                 <p className="text-xs text-slate-400 mt-1">
                   Status Regimental: <strong className="text-emerald-400">{currentUser.status}</strong> •
-                  Membro desde: {new Date(currentUser.joinedDate).toLocaleDateString('pt-BR')}
+                  Membro desde: {currentUser.joinedDate && !isNaN(new Date(currentUser.joinedDate).getTime()) ? new Date(currentUser.joinedDate).toLocaleDateString('pt-BR') : (currentUser.joinedDate || '---')}
                 </p>
               </div>
             </div>
@@ -309,7 +310,7 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({
                     <div>
                       <p className="font-bold text-slate-200">{s.title}</p>
                       <p className="text-[10px] text-slate-400 mt-0.5">
-                        {s.date.split('-').reverse().join('/')} • Grau: {s.degree} ({s.type})
+                        {(s.date || '').split('-').reverse().join('/')} • Grau: {s.degree} ({s.type})
                       </p>
                     </div>
 
@@ -360,28 +361,31 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({
               </div>
             ) : (
               <div className="space-y-2.5">
-                {personalJustifications.map((j) => (
-                  <div
-                    key={j.id}
-                    className="bg-slate-950/60 border border-slate-800 rounded-xl p-3 text-xs space-y-1.5"
-                  >
-                    <div className="flex items-center justify-between">
-                      <span className="font-semibold text-slate-200">Data: {j.date.split('-').reverse().join('/')}</span>
-                      <span
-                        className={`text-[10px] font-bold px-2 py-0.5 rounded border ${
-                          j.status === 'Aprovado'
-                            ? 'bg-emerald-950 text-emerald-300 border-emerald-800'
-                            : j.status === 'Rejeitado'
-                            ? 'bg-rose-950 text-rose-300 border-rose-800'
-                            : 'bg-amber-950 text-amber-300 border-amber-800'
-                        }`}
-                      >
-                        {j.status.toUpperCase()}
-                      </span>
+                {personalJustifications.map((j) => {
+                  const displayDate = (j.submittedAt || (j as any).date || '').split('T')[0].split('-').reverse().join('/');
+                  return (
+                    <div
+                      key={j.id}
+                      className="bg-slate-950/60 border border-slate-800 rounded-xl p-3 text-xs space-y-1.5"
+                    >
+                      <div className="flex items-center justify-between">
+                        <span className="font-semibold text-slate-200">Data: {displayDate || '---'}</span>
+                        <span
+                          className={`text-[10px] font-bold px-2 py-0.5 rounded border ${
+                            j.status === 'Aprovado'
+                              ? 'bg-emerald-950 text-emerald-300 border-emerald-800'
+                              : j.status === 'Rejeitado'
+                              ? 'bg-rose-950 text-rose-300 border-rose-800'
+                              : 'bg-amber-950 text-amber-300 border-amber-800'
+                          }`}
+                        >
+                          {j.status.toUpperCase()}
+                        </span>
+                      </div>
+                      <p className="text-[11px] text-slate-400 line-clamp-1">{j.reason}</p>
                     </div>
-                    <p className="text-[11px] text-slate-400 line-clamp-1">{j.reason}</p>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             )}
           </div>
@@ -428,7 +432,7 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({
               <p className="text-xs sm:text-sm text-slate-300 flex items-center space-x-4">
                 <span className="flex items-center space-x-1">
                   <Calendar className="w-4 h-4 text-amber-400" />
-                  <span>Data: {activeSession.date.split('-').reverse().join('/')} às {activeSession.time}h</span>
+                  <span>Data: {(activeSession.date || '').split('-').reverse().join('/')} às {activeSession.time}h</span>
                 </span>
                 <span className="flex items-center space-x-1">
                   <Building2 className="w-4 h-4 text-amber-400" />
@@ -716,9 +720,9 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({
                       <div className="flex items-center space-x-3">
                         {member && (
                           <img
-                            src={member.photoUrl}
+                            src={getMemberPhotoUrl(member.photoUrl)}
                             alt=""
-                            className="w-8 h-8 rounded-full object-cover ring-1 ring-slate-700"
+                            className="w-8 h-8 rounded-full object-cover ring-1 ring-slate-700 bg-slate-900"
                           />
                         )}
                         <div>
@@ -784,7 +788,8 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({
                 'Secretário',
                 'Chanceler',
               ].map((role) => {
-                const officerId = activeSession.officers[role as keyof typeof activeSession.officers];
+                const officersMap = activeSession.officers || {};
+                const officerId = (officersMap as any)[role];
                 const officerMember = officerId
                   ? members.find((m) => m.id === officerId)
                   : members.find((m) => m.currentOfficerRole === role);
@@ -797,9 +802,9 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({
                     <span className="text-amber-400/90 font-medium">{role}</span>
                     <span className="text-slate-200 truncate max-w-[150px] font-mono">
                       {officerMember
-                        ? officerMember.fullName.split(' ')[0] +
+                        ? (officerMember.fullName || '').split(' ')[0] +
                           ' ' +
-                          officerMember.fullName.split(' ').slice(-1)
+                          (officerMember.fullName || '').split(' ').slice(-1)
                         : 'Vago / Não escalado'}
                     </span>
                   </div>

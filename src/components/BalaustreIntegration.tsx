@@ -87,7 +87,7 @@ export const BalaustreIntegration: React.FC<BalaustreIntegrationProps> = ({
   const generateMinuteDraftText = () => {
     if (!selectedSession) return 'Nenhum balaústre disponível para o seu grau maçônico.';
 
-    const officersText = Object.entries(selectedSession.officers)
+    const officersText = Object.entries(selectedSession.officers || {})
       .map(([role, memberId]) => {
         const m = members.find((mem) => mem.id === memberId);
         return `- ${role}: Ir.'. ${m ? m.fullName : 'Vago'} (CIM ${m ? m.cim : '---'})`;
@@ -108,12 +108,15 @@ export const BalaustreIntegration: React.FC<BalaustreIntegrationProps> = ({
             .join('\n')
         : '- Nenhum irmão visitante registrado.';
 
+    const sessionNum = (selectedSession.title || '').split('nº ')[1] || (selectedSession.title || '').split('Nº ')[1] || '1.485';
+    const formattedDate = (selectedSession.date || '').split('-').reverse().join('/');
+
     return `A∴R∴L∴S∴ FRATERNIDADE DA FRANCA Nº3571
 ORIENTE DE FRANCA/SP
 
-BALAÚSTRE DA SESSÃO Nº ${selectedSession.title.split('nº ')[1] || '1.485'}
-Data: ${selectedSession.date.split('-').reverse().join('/')} às ${selectedSession.time}h
-Templo: ${selectedSession.location}
+BALAÚSTRE DA SESSÃO Nº ${sessionNum}
+Data: ${formattedDate} às ${selectedSession.time || '20:00'}h
+Templo: ${selectedSession.location || 'Templo Principal'}
 Grau dos Trabalhos: ${selectedSession.degree} (${selectedSession.degreeLevel}º Grau)
 
 --- QUADRO DA ADMINISTRAÇÃO DA SESSÃO ---
@@ -169,11 +172,13 @@ Balaústre lavrado pelo Secretário da Oficina e submetido para aprovação regi
   const handleSaveDraft = () => {
     if (!isAdmin || !selectedSession) return;
 
+    const sessionNum = (selectedSession.title || '').split('nº ')[1] || (selectedSession.title || '').split('Nº ')[1] || '1.485';
+
     const newB: Balaustre = {
       id: existingBalaustre ? existingBalaustre.id : 'b-' + Date.now(),
       sessionId: selectedSession.id,
-      number: `Balaústre nº ${selectedSession.title.split('nº ')[1] || '1.485'}`,
-      title: `Ata da ${selectedSession.title}`,
+      number: `Balaústre nº ${sessionNum}`,
+      title: `Ata da ${selectedSession.title || 'Sessão Maçônica'}`,
       date: selectedSession.date,
       summaryText: `Sessão no Grau de ${selectedSession.degree} com a presença de ${presentMembers.length} Irmãos do quadro.`,
       content: currentTextContent,
@@ -193,11 +198,13 @@ Balaústre lavrado pelo Secretário da Oficina e submetido para aprovação regi
   const handleApproveBalaustre = () => {
     if (!isAdmin || !selectedSession) return;
 
+    const sessionNum = (selectedSession.title || '').split('nº ')[1] || (selectedSession.title || '').split('Nº ')[1] || '1.485';
+
     const newB: Balaustre = {
       id: existingBalaustre ? existingBalaustre.id : 'b-' + Date.now(),
       sessionId: selectedSession.id,
-      number: `Balaústre nº ${selectedSession.title.split('nº ')[1] || '1.485'}`,
-      title: `Ata da ${selectedSession.title}`,
+      number: `Balaústre nº ${sessionNum}`,
+      title: `Ata da ${selectedSession.title || 'Sessão Maçônica'}`,
       date: selectedSession.date,
       summaryText: `Sessão no Grau de ${selectedSession.degree} com a presença de ${presentMembers.length} Irmãos do quadro.`,
       content: currentTextContent,
@@ -217,9 +224,10 @@ Balaústre lavrado pelo Secretário da Oficina e submetido para aprovação regi
   // Download do PDF do Balaústre - Disponível para TODOS os Graus
   const handleDownloadPDF = () => {
     if (!selectedSession) return;
+    const sessionNum = (selectedSession.title || '').split('nº ')[1] || (selectedSession.title || '').split('Nº ')[1] || '1.485';
     const balaustreData = existingBalaustre || {
-      number: `Balaústre nº ${selectedSession.title.split('nº ')[1] || '1.485'}`,
-      title: `Ata da ${selectedSession.title}`,
+      number: `Balaústre nº ${sessionNum}`,
+      title: `Ata da ${selectedSession.title || 'Sessão Maçônica'}`,
       date: selectedSession.date,
       content: currentTextContent,
       status: existingBalaustre?.status || 'Aprovado',

@@ -572,7 +572,7 @@ export default function App() {
 
         {/* Main Container */}
         <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6">
-        {(activeTab === 'painel' || activeTab === 'meu_painel') && (
+        {(activeTab === 'painel' || activeTab === 'meu_painel' || (!isAdmin && (activeTab === 'membros' || activeTab === 'visitantes'))) && (
           <DashboardOverview
             activeSession={activeSession}
             sessions={sessions}
