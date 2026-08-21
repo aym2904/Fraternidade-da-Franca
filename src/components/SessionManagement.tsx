@@ -60,6 +60,8 @@ export const ALL_LODGE_OFFICER_ROLES: LodgeOfficerRole[] = [
   'Secretário',
   'Tesoureiro',
   'Chanceler',
+  '1º Diácono',
+  '2º Diácono',
   'Mestre de Cerimônias',
   'Guarda do Templo',
   'Hospedeiro',

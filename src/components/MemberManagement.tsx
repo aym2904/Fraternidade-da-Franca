@@ -704,16 +704,20 @@ export const MemberManagement: React.FC<MemberManagementProps> = ({
                       className="w-full bg-slate-950 border border-slate-800 rounded-lg p-2.5 text-slate-200 focus:outline-none focus:border-amber-500"
                     >
                       <option value="">Nenhum / Obreiro do Quadro</option>
-                      <option value="Venerável Mestre">Venerável Mestre (Gestão e Exibição de QR Code)</option>
-                      <option value="Secretário">Secretário (Gestão e Exibição de QR Code)</option>
-                      <option value="Chanceler">Chanceler (Gestão e Exibição de QR Code)</option>
+                      <option value="Venerável Mestre">Venerável Mestre</option>
                       <option value="1º Vigilante">1º Vigilante</option>
                       <option value="2º Vigilante">2º Vigilante</option>
                       <option value="Orador">Orador</option>
+                      <option value="Secretário">Secretário</option>
                       <option value="Tesoureiro">Tesoureiro</option>
+                      <option value="Chanceler">Chanceler</option>
+                      <option value="1º Diácono">1º Diácono</option>
+                      <option value="2º Diácono">2º Diácono</option>
                       <option value="Mestre de Cerimônias">Mestre de Cerimônias</option>
                       <option value="Guarda do Templo">Guarda do Templo</option>
                       <option value="Hospedeiro">Hospedeiro</option>
+                      <option value="Bibliotecário">Bibliotecário</option>
+                      <option value="Mestre de Harmonia">Mestre de Harmonia</option>
                     </select>
                   )}
 

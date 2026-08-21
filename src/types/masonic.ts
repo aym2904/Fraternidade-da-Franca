@@ -14,6 +14,8 @@ export type LodgeOfficerRole =
   | 'Secretário'
   | 'Tesoureiro'
   | 'Chanceler'
+  | '1º Diácono'
+  | '2º Diácono'
   | 'Mestre de Cerimônias'
   | 'Guarda do Templo'
   | 'Hospedeiro'

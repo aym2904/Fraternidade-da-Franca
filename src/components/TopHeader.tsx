@@ -29,8 +29,8 @@ interface TopHeaderProps {
   activeTab: string;
   setActiveTab: (tab: string) => void;
   currentUser: Member;
-  allMembers: Member[];
-  setCurrentUser: (member: Member) => void;
+  allMembers?: Member[];
+  setCurrentUser?: (member: Member) => void;
   onLogout: () => void;
   hasActiveSession: boolean;
   supabaseStatus?: SupabaseConnectionStatus | null;
@@ -44,8 +44,6 @@ export const TopHeader: React.FC<TopHeaderProps> = ({
   activeTab,
   setActiveTab,
   currentUser,
-  allMembers,
-  setCurrentUser,
   onLogout,
   hasActiveSession,
   supabaseStatus,
@@ -237,73 +235,6 @@ export const TopHeader: React.FC<TopHeaderProps> = ({
                       </span>
                     </div>
                   </div>
-                </div>
-
-                {/* Quick Profile Navigation Links inside menu */}
-                <div className="py-1 space-y-1">
-                  <button
-                    onClick={() => {
-                      setIsUserMenuOpen(false);
-                      setActiveTab('meu_painel');
-                    }}
-                    className={`w-full text-left px-3 py-2 text-xs rounded-xl flex items-center justify-between font-medium transition ${
-                      activeTab === 'meu_painel'
-                        ? 'bg-amber-500/20 text-amber-300 border border-amber-500/40'
-                        : 'text-slate-300 hover:bg-slate-800'
-                    }`}
-                  >
-                    <div className="flex items-center space-x-2">
-                      <BarChart3 className="w-4 h-4 text-amber-400" />
-                      <span>Meu Painel do Obreiro</span>
-                    </div>
-                    <span className="text-[10px] text-slate-400">Pessoal</span>
-                  </button>
-
-                  {isAdmin && (
-                    <button
-                      onClick={() => {
-                        setIsUserMenuOpen(false);
-                        setActiveTab('painel');
-                      }}
-                      className={`w-full text-left px-3 py-2 text-xs rounded-xl flex items-center justify-between font-medium transition ${
-                        activeTab === 'painel'
-                          ? 'bg-amber-500/20 text-amber-300 border border-amber-500/40'
-                          : 'text-slate-300 hover:bg-slate-800'
-                      }`}
-                    >
-                      <div className="flex items-center space-x-2">
-                        <Building2 className="w-4 h-4 text-amber-400" />
-                        <span>Visão Geral (Secretaria)</span>
-                      </div>
-                      <span className="text-[10px] text-slate-400">Loja</span>
-                    </button>
-                  )}
-                </div>
-
-                {/* Quick Switch User (For testing or Officers) */}
-                <div className="py-1.5">
-                  <label className="block text-[10px] text-slate-400 font-medium px-2 mb-1 uppercase tracking-wider">
-                    Trocar Perfil de Usuário
-                  </label>
-                  <select
-                    value={currentUser.id}
-                    onChange={(e) => {
-                      const selected = allMembers.find((m) => m.id === e.target.value);
-                      if (selected) {
-                        setCurrentUser(selected);
-                        setIsUserMenuOpen(false);
-                      }
-                    }}
-                    className="w-full bg-slate-950 border border-slate-800 text-slate-200 text-xs rounded-xl p-2 focus:outline-none focus:border-amber-500"
-                  >
-                    {allMembers
-                      .filter((m) => m.status !== 'Placet')
-                      .map((m) => (
-                        <option key={m.id} value={m.id}>
-                          {m.fullName} ({m.degree} - {m.lodgeRole || 'Membro'})
-                        </option>
-                      ))}
-                  </select>
                 </div>
 
                 {/* Supabase Status Button inside menu (System Admin 193245 only) */}
