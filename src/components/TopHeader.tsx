@@ -44,6 +44,7 @@ export const TopHeader: React.FC<TopHeaderProps> = ({
   activeTab,
   setActiveTab,
   currentUser,
+  allMembers = [],
   onLogout,
   hasActiveSession,
   supabaseStatus,
@@ -128,8 +129,13 @@ export const TopHeader: React.FC<TopHeaderProps> = ({
                 <span className="text-[10px] uppercase font-mono tracking-wider text-amber-500/90 font-semibold hidden md:inline">
                   {currentTabInfo.category} •
                 </span>
-                <h2 className="text-xs sm:text-sm md:text-base font-bold text-slate-100 truncate">
-                  {currentTabInfo.label}
+                <h2 className="text-xs sm:text-sm md:text-base font-bold text-slate-100 truncate flex items-center space-x-2">
+                  <span>{currentTabInfo.label}</span>
+                  {activeTab === 'membros' && allMembers.length > 0 && (
+                    <span className="text-[10px] font-mono font-semibold text-amber-300 bg-amber-500/15 border border-amber-500/30 px-2 py-0.5 rounded-full shadow-sm">
+                      {allMembers.length}
+                    </span>
+                  )}
                 </h2>
               </div>
               <p className="text-[10px] text-slate-400 truncate hidden lg:block">

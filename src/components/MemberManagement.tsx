@@ -177,9 +177,14 @@ export const MemberManagement: React.FC<MemberManagementProps> = ({
       {/* Top Header & Actions */}
       <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-4 bg-slate-900 border border-slate-800 rounded-2xl p-5">
         <div>
-          <h2 className="font-serif-masonic text-xl font-bold text-amber-200">
-            Cadastro e Quadro de Obreiros
-          </h2>
+          <div className="flex flex-wrap items-center gap-2.5">
+            <h2 className="font-serif-masonic text-xl font-bold text-amber-200">
+              Cadastro e Quadro de Obreiros
+            </h2>
+            <span className="text-xs font-mono font-semibold text-amber-300 bg-amber-500/15 border border-amber-500/30 px-2.5 py-0.5 rounded-full shadow-sm">
+              {members.length} {members.length === 1 ? 'obreiro cadastrado' : 'obreiros cadastrados'}
+            </span>
+          </div>
           <p className="text-xs text-slate-400 mt-1">
             Gestão estruturada de Irmãos: dados de identificação, CIM, Grau e Status Regimental.
           </p>
@@ -960,24 +965,32 @@ export const MemberManagement: React.FC<MemberManagementProps> = ({
 
       {/* Confirmation Modal for Permanent Member Deletion (Exclusive to Admin 193245) */}
       {memberToDelete && isSysAdmin && (
-        <div className="fixed inset-0 z-50 bg-slate-950/85 backdrop-blur-sm flex flex-col items-center justify-center p-4">
-          <div className="bg-slate-900 border border-rose-800/80 rounded-2xl max-w-md w-full p-6 text-slate-200 shadow-2xl space-y-4">
-            <div className="flex items-center space-x-3 text-rose-400 border-b border-slate-800 pb-3">
-              <div className="p-2 bg-rose-950/80 border border-rose-700/60 rounded-xl">
-                <Trash2 className="w-6 h-6 text-rose-400" />
+        <div className="fixed inset-0 z-50 bg-slate-950/90 backdrop-blur-md flex flex-col items-center justify-start sm:justify-center p-2 sm:p-4 overflow-y-auto overscroll-contain">
+          <div className="bg-slate-900 border border-rose-800/80 rounded-2xl max-w-md w-full my-auto text-slate-200 shadow-2xl flex flex-col max-h-[92vh] sm:max-h-[88vh] overflow-hidden animate-in fade-in zoom-in duration-200">
+            {/* Header */}
+            <div className="flex items-center space-x-3 text-rose-400 border-b border-slate-800 p-4 sm:p-5 bg-rose-950/50 shrink-0">
+              <div className="p-2 bg-rose-950/80 border border-rose-700/60 rounded-xl shrink-0">
+                <Trash2 className="w-5 h-5 text-rose-400" />
               </div>
-              <div>
-                <h3 className="font-serif-masonic text-base font-bold text-slate-100">
+              <div className="flex-1 min-w-0">
+                <h3 className="font-serif-masonic text-base font-bold text-slate-100 truncate">
                   Exclusão Definitiva de Obreiro
                 </h3>
-                <p className="text-[11px] text-amber-400 font-mono">
+                <p className="text-[10px] text-amber-400 font-mono">
                   Prerrogativa exclusiva do Administrador 193245
                 </p>
               </div>
+              <button
+                onClick={() => setMemberToDelete(null)}
+                className="text-slate-400 hover:text-slate-100 p-1.5 rounded-lg bg-slate-800/80 hover:bg-slate-700 transition shrink-0"
+              >
+                <X className="w-4 h-4" />
+              </button>
             </div>
 
-            <div className="space-y-3 text-xs text-slate-300">
-              <p>
+            {/* Scrollable Content */}
+            <div className="p-4 sm:p-6 space-y-3 text-xs overflow-y-auto flex-1 overscroll-contain">
+              <p className="text-slate-300">
                 Você está prestes a excluir permanentemente o cadastro do irmão:
               </p>
               <div className="p-3 bg-slate-950 border border-slate-800 rounded-xl flex items-center space-x-3">
@@ -986,9 +999,9 @@ export const MemberManagement: React.FC<MemberManagementProps> = ({
                   alt={memberToDelete.fullName}
                   className="w-10 h-10 rounded-full object-cover ring-1 ring-slate-700 shrink-0"
                 />
-                <div>
-                  <h4 className="font-bold text-slate-100">{memberToDelete.fullName}</h4>
-                  <p className="text-[11px] text-amber-400/90 font-mono">
+                <div className="min-w-0 flex-1">
+                  <h4 className="font-bold text-slate-100 truncate">{memberToDelete.fullName}</h4>
+                  <p className="text-[11px] text-amber-400/90 font-mono truncate">
                     CIM: {memberToDelete.cim} • Grau: {memberToDelete.degree}
                   </p>
                 </div>
@@ -998,11 +1011,12 @@ export const MemberManagement: React.FC<MemberManagementProps> = ({
               </p>
             </div>
 
-            <div className="pt-3 border-t border-slate-800 flex justify-end space-x-3">
+            {/* Pinned Footer Actions */}
+            <div className="p-3.5 sm:p-4 bg-slate-950/90 border-t border-slate-800 flex flex-wrap items-center justify-end gap-2.5 shrink-0">
               <button
                 type="button"
                 onClick={() => setMemberToDelete(null)}
-                className="bg-slate-800 hover:bg-slate-700 text-slate-300 font-medium px-4 py-2 rounded-lg text-xs"
+                className="bg-slate-800 hover:bg-slate-700 text-slate-300 font-medium px-4 py-2.5 rounded-xl text-xs transition active:scale-95"
               >
                 Cancelar
               </button>
@@ -1014,9 +1028,10 @@ export const MemberManagement: React.FC<MemberManagementProps> = ({
                   }
                   setMemberToDelete(null);
                 }}
-                className="bg-rose-600 hover:bg-rose-500 text-white font-bold px-4 py-2 rounded-lg text-xs transition shadow-lg shadow-rose-900/40"
+                className="bg-rose-600 hover:bg-rose-500 text-white font-bold px-5 py-2.5 rounded-xl text-xs flex items-center space-x-2 transition shadow-lg shadow-rose-900/40 active:scale-95"
               >
-                Sim, Excluir Obreiro
+                <Trash2 className="w-4 h-4" />
+                <span>Sim, Excluir Obreiro</span>
               </button>
             </div>
           </div>

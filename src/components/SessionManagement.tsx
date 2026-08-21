@@ -678,10 +678,10 @@ export const SessionManagement: React.FC<SessionManagementProps> = ({
 
       {/* Confirmation Modal for Single Session Delete (Admin 193245 Only) */}
       {sessionToDelete && isSysAdmin && (
-        <div className="fixed inset-0 z-50 bg-slate-950/90 backdrop-blur-md flex flex-col items-center justify-center p-4 overflow-y-auto overscroll-contain">
-          <div className="bg-slate-900 border border-rose-900/60 rounded-2xl max-w-lg w-full text-slate-200 shadow-2xl overflow-hidden animate-in fade-in zoom-in duration-200">
+        <div className="fixed inset-0 z-50 bg-slate-950/90 backdrop-blur-md flex flex-col items-center justify-start sm:justify-center p-2 sm:p-4 overflow-y-auto overscroll-contain">
+          <div className="bg-slate-900 border border-rose-900/60 rounded-2xl max-w-lg w-full my-auto text-slate-200 shadow-2xl flex flex-col max-h-[92vh] sm:max-h-[88vh] overflow-hidden animate-in fade-in zoom-in duration-200">
             {/* Header */}
-            <div className="flex items-center justify-between border-b border-slate-800 p-4 sm:p-5 bg-rose-950/40">
+            <div className="flex items-center justify-between border-b border-slate-800 p-4 sm:p-5 bg-rose-950/50 shrink-0">
               <div className="flex items-center space-x-3">
                 <div className="w-10 h-10 rounded-xl bg-rose-500/20 border border-rose-500/40 flex items-center justify-center text-rose-400 shrink-0">
                   <AlertTriangle className="w-5 h-5" />
@@ -703,8 +703,8 @@ export const SessionManagement: React.FC<SessionManagementProps> = ({
               </button>
             </div>
 
-            {/* Content */}
-            <div className="p-5 sm:p-6 space-y-4 text-xs">
+            {/* Scrollable Content */}
+            <div className="p-4 sm:p-6 space-y-4 text-xs overflow-y-auto flex-1 overscroll-contain">
               <div className="bg-slate-950 border border-slate-800 rounded-xl p-3.5 space-y-1.5">
                 <div className="text-[11px] font-mono text-amber-400 uppercase font-semibold">
                   Sessão Selecionada:
@@ -743,12 +743,12 @@ export const SessionManagement: React.FC<SessionManagementProps> = ({
               </p>
             </div>
 
-            {/* Actions */}
-            <div className="p-4 sm:p-5 bg-slate-950/60 border-t border-slate-800 flex items-center justify-end space-x-3">
+            {/* Pinned Action Buttons Footer */}
+            <div className="p-3.5 sm:p-4 bg-slate-950/90 border-t border-slate-800 flex flex-wrap items-center justify-end gap-2.5 shrink-0">
               <button
                 type="button"
                 onClick={() => setSessionToDelete(null)}
-                className="bg-slate-800 hover:bg-slate-700 text-slate-300 font-medium px-4 py-2 rounded-lg text-xs transition"
+                className="bg-slate-800 hover:bg-slate-700 text-slate-300 font-medium px-4 py-2.5 rounded-xl text-xs transition active:scale-95"
               >
                 Cancelar
               </button>
@@ -760,7 +760,7 @@ export const SessionManagement: React.FC<SessionManagementProps> = ({
                     setSessionToDelete(null);
                   }
                 }}
-                className="bg-rose-600 hover:bg-rose-500 text-white font-bold px-5 py-2 rounded-lg text-xs flex items-center space-x-2 shadow-lg shadow-rose-600/20 transition active:scale-95"
+                className="bg-rose-600 hover:bg-rose-500 text-white font-bold px-5 py-2.5 rounded-xl text-xs flex items-center space-x-2 shadow-lg shadow-rose-600/20 transition active:scale-95"
               >
                 <Trash2 className="w-4 h-4" />
                 <span>Sim, Excluir Sessão e Registros</span>
@@ -772,10 +772,10 @@ export const SessionManagement: React.FC<SessionManagementProps> = ({
 
       {/* Confirmation Modal for Clear All Sessions (Admin 193245 Only) */}
       {isClearAllModalOpen && isSysAdmin && (
-        <div className="fixed inset-0 z-50 bg-slate-950/90 backdrop-blur-md flex flex-col items-center justify-center p-4 overflow-y-auto overscroll-contain">
-          <div className="bg-slate-900 border border-rose-900/60 rounded-2xl max-w-lg w-full text-slate-200 shadow-2xl overflow-hidden animate-in fade-in zoom-in duration-200">
+        <div className="fixed inset-0 z-50 bg-slate-950/90 backdrop-blur-md flex flex-col items-center justify-start sm:justify-center p-2 sm:p-4 overflow-y-auto overscroll-contain">
+          <div className="bg-slate-900 border border-rose-900/60 rounded-2xl max-w-lg w-full my-auto text-slate-200 shadow-2xl flex flex-col max-h-[92vh] sm:max-h-[88vh] overflow-hidden animate-in fade-in zoom-in duration-200">
             {/* Header */}
-            <div className="flex items-center justify-between border-b border-slate-800 p-4 sm:p-5 bg-rose-950/40">
+            <div className="flex items-center justify-between border-b border-slate-800 p-4 sm:p-5 bg-rose-950/50 shrink-0">
               <div className="flex items-center space-x-3">
                 <div className="w-10 h-10 rounded-xl bg-rose-500/20 border border-rose-500/40 flex items-center justify-center text-rose-400 shrink-0">
                   <AlertTriangle className="w-5 h-5" />
@@ -797,8 +797,8 @@ export const SessionManagement: React.FC<SessionManagementProps> = ({
               </button>
             </div>
 
-            {/* Content */}
-            <div className="p-5 sm:p-6 space-y-4 text-xs">
+            {/* Scrollable Content */}
+            <div className="p-4 sm:p-6 space-y-4 text-xs overflow-y-auto flex-1 overscroll-contain">
               <div className="bg-rose-950/30 border border-rose-800/60 rounded-xl p-4 space-y-2 text-rose-200">
                 <div className="flex items-center space-x-2 font-bold text-xs text-rose-300">
                   <ShieldAlert className="w-4 h-4 text-rose-400 shrink-0" />
@@ -814,12 +814,12 @@ export const SessionManagement: React.FC<SessionManagementProps> = ({
               </p>
             </div>
 
-            {/* Actions */}
-            <div className="p-4 sm:p-5 bg-slate-950/60 border-t border-slate-800 flex items-center justify-end space-x-3">
+            {/* Pinned Actions */}
+            <div className="p-3.5 sm:p-4 bg-slate-950/90 border-t border-slate-800 flex flex-wrap items-center justify-end gap-2.5 shrink-0">
               <button
                 type="button"
                 onClick={() => setIsClearAllModalOpen(false)}
-                className="bg-slate-800 hover:bg-slate-700 text-slate-300 font-medium px-4 py-2 rounded-lg text-xs transition"
+                className="bg-slate-800 hover:bg-slate-700 text-slate-300 font-medium px-4 py-2.5 rounded-xl text-xs transition active:scale-95"
               >
                 Cancelar
               </button>
@@ -829,7 +829,7 @@ export const SessionManagement: React.FC<SessionManagementProps> = ({
                   onClearAllSessions?.();
                   setIsClearAllModalOpen(false);
                 }}
-                className="bg-rose-600 hover:bg-rose-500 text-white font-bold px-5 py-2 rounded-lg text-xs flex items-center space-x-2 shadow-lg shadow-rose-600/20 transition active:scale-95"
+                className="bg-rose-600 hover:bg-rose-500 text-white font-bold px-5 py-2.5 rounded-xl text-xs flex items-center space-x-2 shadow-lg shadow-rose-600/20 transition active:scale-95"
               >
                 <Trash2 className="w-4 h-4" />
                 <span>Sim, Limpar Todas as Sessões</span>

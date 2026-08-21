@@ -43,6 +43,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
   activeTab,
   setActiveTab,
   currentUser,
+  allMembers = [],
   onLogout,
   pendingJustificationsCount,
   inactivityAlertsCount,
@@ -55,6 +56,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
   const isAdmin = isLodgeAdmin(currentUser);
   const badge = getRoleBadgeLabel(currentUser);
   const sidebarRef = useRef<HTMLElement>(null);
+  const totalMembersCount = allMembers.length;
 
   // Auto-retract/collapse when clicking anywhere outside the sidebar
   useEffect(() => {
@@ -134,12 +136,13 @@ export const Sidebar: React.FC<SidebarProps> = ({
     },
     {
       id: 'membros',
-      label: 'Obreiros / Quadro',
+      label: 'Quadro de Obreiros',
       shortLabel: 'Obreiros',
       icon: Users,
       visible: isAdmin,
-      badge: null,
-      badgeColor: '',
+      badge: totalMembersCount > 0 ? String(totalMembersCount) : null,
+      badgeColor: 'bg-slate-800/90 text-amber-300 border border-amber-500/30 font-mono font-bold tracking-tight',
+      isCounter: true,
     },
     {
       id: 'visitantes',
@@ -309,14 +312,14 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 {/* Badge Indicator */}
                 {(!isCollapsed || isMobileOpen) && item.badge && (
                   <span
-                    className={`text-[10px] px-1.5 py-0.5 rounded-full shrink-0 ml-2 shadow-sm ${item.badgeColor}`}
+                    className={`text-[10px] px-2 py-0.5 rounded-full shrink-0 ml-2 shadow-sm ${item.badgeColor}`}
                   >
                     {item.badge}
                   </span>
                 )}
 
-                {/* Dot for collapsed mode when badge exists */}
-                {isCollapsed && !isMobileOpen && item.badge && (
+                {/* Dot for collapsed mode when an urgent alert/badge exists */}
+                {isCollapsed && !isMobileOpen && item.badge && !item.isCounter && (
                   <span className="absolute top-2 right-2 w-2 h-2 rounded-full bg-amber-400 animate-pulse" />
                 )}
               </button>
