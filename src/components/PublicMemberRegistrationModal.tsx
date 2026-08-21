@@ -155,8 +155,8 @@ export const PublicMemberRegistrationModal: React.FC<PublicMemberRegistrationMod
             </div>
             <div>
               <div className="flex items-center space-x-2">
-                <span className="text-[10px] font-mono font-bold uppercase tracking-wider text-amber-400 bg-amber-950/80 px-2 py-0.5 rounded border border-amber-800/60">
-                  A∴R∴L∴S∴ Fraternidade da Franca Nº3571
+                <span className="text-[9px] sm:text-[10px] font-mono font-bold uppercase tracking-wider text-amber-400 bg-amber-950/80 px-2 py-0.5 rounded border border-amber-800/60 whitespace-nowrap">
+                  A∴R∴L∴S∴ Fraternidade da Franca Nº 3571
                 </span>
               </div>
               <h3 className="font-serif-masonic text-base sm:text-lg font-bold text-slate-100 mt-1">
