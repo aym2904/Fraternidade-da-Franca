@@ -34,3 +34,19 @@ export const formatPhone = (value: string): string => {
 export const formatEmail = (value: string): string => {
   return value.trim().toLowerCase();
 };
+
+export const formatDisplayDate = (value?: string): string => {
+  if (!value) return '---';
+  const clean = value.trim();
+  if (!clean) return '---';
+  if (clean.includes('-')) {
+    const parts = clean.split('T')[0].split('-');
+    if (parts.length === 3) {
+      const [year, month, day] = parts;
+      if (year.length === 4) {
+        return `${day.padStart(2, '0')}/${month.padStart(2, '0')}/${year}`;
+      }
+    }
+  }
+  return clean;
+};

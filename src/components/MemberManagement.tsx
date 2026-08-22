@@ -27,7 +27,7 @@ import { compressImageFile } from '../utils/imageUtils';
 import { OFFICER_PERMISSIONS_MAP, ADMIN_OFFICER_ROLES, getOfficerPermissions, isSystemAdmin } from '../utils/authUtils';
 import { PublicMemberRegistrationModal } from './PublicMemberRegistrationModal';
 import { Share2, UserPlus, Copy, Check, Eye, EyeOff } from 'lucide-react';
-import { formatFullName, cleanFullName, formatCIM, formatCPF, formatPhone, formatEmail } from '../utils/formatters';
+import { formatFullName, cleanFullName, formatCIM, formatCPF, formatPhone, formatEmail, formatDisplayDate } from '../utils/formatters';
 
 interface MemberManagementProps {
   members: Member[];
@@ -101,6 +101,7 @@ export const MemberManagement: React.FC<MemberManagementProps> = ({
       phone: '',
       photoUrl: '',
       password: '123456',
+      joinedDate: '',
     });
     setIsModalOpen(true);
   };
@@ -161,7 +162,7 @@ export const MemberManagement: React.FC<MemberManagementProps> = ({
         degreeLevel: level,
         status: (formData.status as MemberStatus) || 'Regular',
         currentOfficerRole: formData.currentOfficerRole,
-        joinedDate: formData.joinedDate || new Date().toISOString().split('T')[0],
+        joinedDate: formData.joinedDate?.trim() || '',
         phone: formData.phone ? formatPhone(formData.phone) : '',
         photoUrl: formData.photoUrl,
         password: isSysAdmin ? (formData.password?.trim() || '123456') : '123456',
@@ -437,7 +438,7 @@ export const MemberManagement: React.FC<MemberManagementProps> = ({
                     {selectedMember.joinedDate && (
                       <>
                         <span>•</span>
-                        <span>Membro Desde: <strong className="text-amber-300">{selectedMember.joinedDate.split('-').reverse().join('/')}</strong></span>
+                        <span>Maçom iniciado em: <strong className="text-amber-300">{formatDisplayDate(selectedMember.joinedDate)}</strong></span>
                       </>
                     )}
                   </p>
@@ -708,7 +709,7 @@ export const MemberManagement: React.FC<MemberManagementProps> = ({
                 </div>
 
                 <div>
-                  <label className="block text-slate-300 font-medium mb-1">Membro Desde (Iniciação)</label>
+                  <label className="block text-slate-300 font-medium mb-1">Data da Iniciação Maçônica</label>
                   <input
                     type="date"
                     value={formData.joinedDate || ''}

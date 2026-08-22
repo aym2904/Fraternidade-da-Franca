@@ -20,7 +20,7 @@ import {
 import { Member, MasonicDegree, MemberStatus, LodgeOfficerRole } from '../types/masonic';
 import { DEFAULT_NEUTRAL_AVATAR, getMemberPhotoUrl } from '../utils/avatarUtils';
 import { compressImageFile } from '../utils/imageUtils';
-import { formatFullName, cleanFullName, formatCIM, formatCPF, formatPhone, formatEmail } from '../utils/formatters';
+import { formatFullName, cleanFullName, formatCIM, formatCPF, formatPhone, formatEmail, formatDisplayDate } from '../utils/formatters';
 
 interface PublicMemberRegistrationModalProps {
   isOpen: boolean;
@@ -44,7 +44,7 @@ export const PublicMemberRegistrationModal: React.FC<PublicMemberRegistrationMod
     degreeLevel: 1,
     status: 'Regular',
     currentOfficerRole: undefined,
-    joinedDate: new Date().toISOString().split('T')[0],
+    joinedDate: '',
     phone: '',
     password: '',
     photoUrl: '',
@@ -118,7 +118,7 @@ export const PublicMemberRegistrationModal: React.FC<PublicMemberRegistrationMod
       degreeLevel: formData.degree === 'Mestre' ? 3 : formData.degree === 'Companheiro' ? 2 : 1,
       status: formData.status || 'Regular',
       currentOfficerRole: formData.currentOfficerRole || undefined,
-      joinedDate: formData.joinedDate || new Date().toISOString().split('T')[0],
+      joinedDate: formData.joinedDate?.trim() || '',
       phone: formData.phone ? formatPhone(formData.phone) : '',
       password: formData.password?.trim() || '123456',
       photoUrl: formData.photoUrl,
@@ -142,7 +142,7 @@ export const PublicMemberRegistrationModal: React.FC<PublicMemberRegistrationMod
       degreeLevel: 1,
       status: 'Regular',
       currentOfficerRole: undefined,
-      joinedDate: new Date().toISOString().split('T')[0],
+      joinedDate: '',
       phone: '',
       password: '',
       photoUrl: '',
@@ -384,10 +384,10 @@ export const PublicMemberRegistrationModal: React.FC<PublicMemberRegistrationMod
                 </div>
 
                 <div>
-                  <label className="block text-slate-300 font-medium mb-1">Data de Iniciação / Filiação</label>
+                  <label className="block text-slate-300 font-medium mb-1">Data da Iniciação Maçônica</label>
                   <input
                     type="date"
-                    value={formData.joinedDate}
+                    value={formData.joinedDate || ''}
                     onChange={(e) => setFormData({ ...formData, joinedDate: e.target.value })}
                     className="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-slate-200 focus:outline-none focus:border-amber-500"
                   />

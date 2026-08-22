@@ -23,6 +23,7 @@ import { Member, Session, AttendanceRecord, VisitorRecord, Justification, Inacti
 import { calculateSessionStats, calculateMemberAttendance } from '../utils/masonicUtils';
 import { isLodgeAdmin, isSystemAdmin, getRoleBadgeLabel, canAccessSessionDegree } from '../utils/authUtils';
 import { getMemberPhotoUrl } from '../utils/avatarUtils';
+import { formatDisplayDate } from '../utils/formatters';
 import { QrCodeScannerModal } from './QrCodeScannerModal';
 
 interface DashboardOverviewProps {
@@ -144,7 +145,7 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({
 
                 <p className="text-xs text-slate-400 mt-1">
                   Status Regimental: <strong className="text-emerald-400">{currentUser.status}</strong> •
-                  Membro desde: {currentUser.joinedDate && !isNaN(new Date(currentUser.joinedDate).getTime()) ? new Date(currentUser.joinedDate).toLocaleDateString('pt-BR') : (currentUser.joinedDate || '---')}
+                  Maçom iniciado em: <strong className="text-amber-300">{formatDisplayDate(currentUser.joinedDate)}</strong>
                 </p>
               </div>
             </div>
