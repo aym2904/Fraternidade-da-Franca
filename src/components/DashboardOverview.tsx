@@ -143,10 +143,14 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({
                   {currentUser.fullName}
                 </h2>
 
-                <p className="text-xs text-slate-400 mt-1">
-                  Status Regimental: <strong className="text-emerald-400">{currentUser.status}</strong> •
-                  Maçom iniciado em: <strong className="text-amber-300">{formatDisplayDate(currentUser.joinedDate)}</strong>
-                </p>
+                <div className="space-y-0.5 text-xs text-slate-400 mt-1.5">
+                  <p>
+                    Status Regimental: <strong className="text-emerald-400">{currentUser.status}</strong>
+                  </p>
+                  <p>
+                    Maçom iniciado em: <strong className="text-amber-300">{formatDisplayDate(currentUser.joinedDate)}</strong>
+                  </p>
+                </div>
               </div>
             </div>
 

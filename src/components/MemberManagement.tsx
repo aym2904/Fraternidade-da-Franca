@@ -435,13 +435,12 @@ export const MemberManagement: React.FC<MemberManagementProps> = ({
                     <span>CIM: <strong className="text-slate-200">{selectedMember.cim}</strong></span>
                     <span>•</span>
                     <span>CPF: <strong className="text-slate-200">{selectedMember.cpf}</strong></span>
-                    {selectedMember.joinedDate && (
-                      <>
-                        <span>•</span>
-                        <span>Maçom iniciado em: <strong className="text-amber-300">{formatDisplayDate(selectedMember.joinedDate)}</strong></span>
-                      </>
-                    )}
                   </p>
+                  {selectedMember.joinedDate && (
+                    <p className="text-xs text-slate-400 mt-0.5 text-center sm:text-left">
+                      Maçom iniciado em: <strong className="text-amber-300">{formatDisplayDate(selectedMember.joinedDate)}</strong>
+                    </p>
+                  )}
                   <div className="mt-2 flex flex-wrap justify-center sm:justify-start gap-2 text-xs">
                     <span className="bg-amber-950 text-amber-300 border border-amber-800 px-2.5 py-0.5 rounded font-medium">
                       {selectedMember.degree} (Grau {selectedMember.degreeLevel})
