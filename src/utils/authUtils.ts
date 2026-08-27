@@ -60,12 +60,12 @@ export const OFFICER_PERMISSIONS_MAP: Record<string, RolePermissions> = {
 };
 
 export const SYSTEM_ADMIN_USER: Member = {
-  id: 'sys-admin-193245',
+  id: 'sys-admin-master',
   fullName: 'Administração do Sistema',
   cpf: '000.000.000-00',
   email: 'admin@fraternidadedefranca.org.br',
   photoUrl: ADMIN_AVATAR,
-  cim: '193245',
+  cim: 'admin',
   degree: 'Mestre',
   degreeLevel: 3,
   status: 'Regular',
@@ -80,11 +80,14 @@ export const SYSTEM_ADMIN_USER: Member = {
  */
 export function isSystemAdmin(member: Member | null | undefined): boolean {
   if (!member) return false;
-  const cleanCim = String(member.cim || '').replace(/\D/g, '');
+  const cleanCim = String(member.cim || '').trim().toLowerCase();
+  const rawId = String(member.id || '').trim().toLowerCase();
   return (
-    member.id === 'sys-admin-193245' ||
-    member.id === '193245' ||
-    member.cim === '193245' ||
+    rawId === 'sys-admin-master' ||
+    rawId === 'sys-admin-193245' ||
+    rawId === 'admin' ||
+    rawId === '193245' ||
+    cleanCim === 'admin' ||
     cleanCim === '193245' ||
     member.fullName === 'Administração do Sistema'
   );
@@ -92,7 +95,7 @@ export function isSystemAdmin(member: Member | null | undefined): boolean {
 
 /**
  * Checks if a member has administrative/management officer permissions in the Lodge
- * (Exclusivamente Secretário, Chanceler, Venerável Mestre com Grau de Mestre, ou Administrador do Sistema 193245).
+ * (Exclusivamente Secretário, Chanceler, Venerável Mestre com Grau de Mestre, ou Administrador do Sistema).
  */
 export function isLodgeAdmin(member: Member | null | undefined): boolean {
   if (!member) return false;
@@ -146,7 +149,7 @@ export function canAccessBalaustreDegree(member: Member, sessionDegreeLevel: num
  * Returns a readable user role description and color badge class.
  */
 export function getRoleBadgeLabel(member: Member): { label: string; colorClass: string } {
-  if (member.cim === '193245' || member.id === 'sys-admin-193245' || member.fullName === 'Administração do Sistema') {
+  if (isSystemAdmin(member)) {
     return {
       label: 'ADMINISTRAÇÃO DO SISTEMA',
       colorClass: 'bg-amber-500/20 text-amber-300 border border-amber-500/50',

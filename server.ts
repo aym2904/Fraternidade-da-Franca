@@ -1,6 +1,5 @@
 import express from 'express';
 import path from 'path';
-import { createServer as createViteServer } from 'vite';
 import { GoogleGenAI } from '@google/genai';
 
 async function startServer() {
@@ -27,11 +26,18 @@ async function startServer() {
       if (!apiKey || apiKey === 'MY_GEMINI_API_KEY') {
         // Fallback response if GEMINI_API_KEY is not set
         return res.json({
-          text: `${prompt}\n\n[RESUMO SINTÉTICO GERADO PELA SECRETARIA]: Trabalhos encerrados com a Tronco de Beneficência coberta e saudações maçônicas ao Grão-Mestrado.`
+          text: `${prompt}\n\n[RESUMO SINTÉTICO GERADO PELA SECRETARIA]: Trabalhos encerrados com o Tronco de Beneficência coberto e saudações fraternais.`
         });
       }
 
-      const ai = new GoogleGenAI({ apiKey });
+      const ai = new GoogleGenAI({
+        apiKey,
+        httpOptions: {
+          headers: {
+            'User-Agent': 'aistudio-build',
+          },
+        },
+      });
       const fullPrompt = `Atue como um Secretário Maçônico experiente da A∴R∴L∴S∴ Fraternidade da Franca Nº3571. Refine a minuta de ata/balaústre maçônico abaixo tornando o estilo solene, formal e impecável regimentalmente:\n\n${prompt}`;
 
       const response = await ai.models.generateContent({
@@ -48,6 +54,7 @@ async function startServer() {
 
   // Vite middleware for development vs static file serving for production
   if (process.env.NODE_ENV !== 'production') {
+    const { createServer: createViteServer } = await import('vite');
     const vite = await createViteServer({
       server: { middlewareMode: true },
       appType: 'spa',
@@ -66,4 +73,7 @@ async function startServer() {
   });
 }
 
-startServer();
+startServer().catch((err) => {
+  console.error('Failed to start server:', err);
+  process.exit(1);
+});

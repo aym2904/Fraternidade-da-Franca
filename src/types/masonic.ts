@@ -52,6 +52,7 @@ export interface Session {
   active: boolean;
   officers: Partial<Record<LodgeOfficerRole, string>>; // memberId or Name
   notes?: string;
+  createdAt?: string; // ISO date string or timestamp of creation
 }
 
 export interface AttendanceRecord {

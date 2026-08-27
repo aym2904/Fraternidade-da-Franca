@@ -17,13 +17,18 @@ import {
   User,
   XCircle,
   PlusCircle,
-  Camera
+  Camera,
+  UserCog,
+  Edit3,
+  Paperclip,
+  Download
 } from 'lucide-react';
 import { Member, Session, AttendanceRecord, VisitorRecord, Justification, InactivityAlert } from '../types/masonic';
 import { calculateSessionStats, calculateMemberAttendance } from '../utils/masonicUtils';
 import { isLodgeAdmin, isSystemAdmin, getRoleBadgeLabel, canAccessSessionDegree } from '../utils/authUtils';
 import { getMemberPhotoUrl } from '../utils/avatarUtils';
 import { formatDisplayDate } from '../utils/formatters';
+import { downloadJustificationAttachment } from '../utils/pdfGenerator';
 import { QrCodeScannerModal } from './QrCodeScannerModal';
 
 interface DashboardOverviewProps {
@@ -39,6 +44,8 @@ interface DashboardOverviewProps {
   onQuickCheckIn: () => void;
   isCurrentUserCheckedIn: boolean;
   forcePersonalView?: boolean;
+  onUpdateMember?: (member: Member) => void;
+  onOpenEditProfile?: () => void;
 }
 
 export const DashboardOverview: React.FC<DashboardOverviewProps> = ({
@@ -54,6 +61,8 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({
   onQuickCheckIn,
   isCurrentUserCheckedIn,
   forcePersonalView = false,
+  onUpdateMember,
+  onOpenEditProfile,
 }) => {
   const isAdmin = isLodgeAdmin(currentUser);
   const [isScannerOpen, setIsScannerOpen] = useState(false);
@@ -110,12 +119,24 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({
           <div className="absolute top-0 right-0 w-80 h-80 bg-amber-500/5 rounded-full blur-3xl pointer-events-none" />
 
           <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 relative z-10">
-            <div className="flex items-center space-x-4">
-              <img
-                src={getMemberPhotoUrl(currentUser.photoUrl)}
-                alt={currentUser.fullName}
-                className="w-16 h-16 sm:w-20 sm:h-20 rounded-full object-cover ring-2 ring-amber-500/60 shadow-lg bg-slate-900"
-              />
+            <div className="flex items-start sm:items-center space-x-4">
+              {/* Profile Photo with direct edit badge */}
+              <div className="relative group shrink-0">
+                <img
+                  src={getMemberPhotoUrl(currentUser.photoUrl)}
+                  alt={currentUser.fullName}
+                  className="w-16 h-16 sm:w-20 sm:h-20 rounded-full object-cover ring-2 ring-amber-500/60 shadow-lg bg-slate-900 group-hover:ring-amber-400 transition"
+                />
+                <button
+                  type="button"
+                  onClick={() => onOpenEditProfile?.()}
+                  title="Alterar Fotografia do Perfil"
+                  className="absolute -bottom-1 -right-1 bg-amber-500 hover:bg-amber-400 text-slate-950 p-1.5 rounded-full shadow-md transition transform group-hover:scale-110 active:scale-95 border border-slate-900 cursor-pointer"
+                >
+                  <Camera className="w-3.5 h-3.5" />
+                </button>
+              </div>
+
               <div>
                 <div className="flex flex-wrap items-center gap-2 mb-1">
                   {isSystemAdmin(currentUser) ? (
@@ -139,9 +160,19 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({
                   )}
                 </div>
 
-                <h2 className="font-serif-masonic text-xl sm:text-2xl font-bold text-slate-100">
-                  {currentUser.fullName}
-                </h2>
+                <div className="flex flex-wrap items-center gap-3">
+                  <h2 className="font-serif-masonic text-xl sm:text-2xl font-bold text-slate-100">
+                    {currentUser.fullName}
+                  </h2>
+                  <button
+                    type="button"
+                    onClick={() => onOpenEditProfile?.()}
+                    className="inline-flex items-center space-x-1.5 text-xs font-semibold px-2.5 py-1 rounded-lg bg-amber-500/10 hover:bg-amber-500/20 text-amber-300 border border-amber-500/30 transition active:scale-95 cursor-pointer"
+                  >
+                    <Edit3 className="w-3.5 h-3.5 text-amber-400" />
+                    <span>Meu Perfil</span>
+                  </button>
+                </div>
 
                 <div className="space-y-0.5 text-xs text-slate-400 mt-1.5">
                   <p>
@@ -388,6 +419,21 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({
                         </span>
                       </div>
                       <p className="text-[11px] text-slate-400 line-clamp-1">{j.reason}</p>
+                      {j.fileName && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const sess = sessions.find((s) => s.id === j.sessionId);
+                            downloadJustificationAttachment(j, currentUser, sess);
+                          }}
+                          className="inline-flex items-center space-x-1.5 text-[11px] text-amber-300 hover:text-amber-200 bg-amber-950/40 hover:bg-amber-900/60 border border-amber-800/50 hover:border-amber-600 rounded-md px-2 py-1 mt-1 transition group cursor-pointer"
+                          title={`Clique para baixar anexo: ${j.fileName}`}
+                        >
+                          <Paperclip className="w-3 h-3 text-amber-400 group-hover:rotate-12 transition-transform shrink-0" />
+                          <span className="truncate max-w-[220px] underline underline-offset-2">Anexo: {j.fileName}</span>
+                          <Download className="w-2.5 h-2.5 ml-1 text-amber-400 group-hover:text-amber-200 shrink-0" />
+                        </button>
+                      )}
                     </div>
                   );
                 })}

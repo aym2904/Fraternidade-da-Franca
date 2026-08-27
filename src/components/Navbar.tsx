@@ -93,12 +93,12 @@ export const Navbar: React.FC<NavbarProps> = ({
 
           {/* User Profile & Menu (Hominho) */}
           <div className="flex items-center space-x-2 shrink-0">
-            {/* Supabase Connection Quick Badge (System Admin 193245 only) */}
+            {/* Supabase Connection Quick Badge (System Admin only) */}
             {isSysAdmin && onOpenSupabaseModal && (
               <button
                 type="button"
                 onClick={onOpenSupabaseModal}
-                title="Status do Banco de Dados Supabase (Exclusivo Administrador 193245)"
+                title="Status do Banco de Dados Supabase (Exclusivo Administrador)"
                 className={`hidden sm:flex items-center space-x-1.5 px-2.5 py-1.5 rounded-xl text-[11px] font-semibold border transition active:scale-95 ${
                   supabaseStatus?.hasTables
                     ? 'bg-emerald-950/70 border-emerald-700/60 text-emerald-300 hover:bg-emerald-900/80 shadow-sm'

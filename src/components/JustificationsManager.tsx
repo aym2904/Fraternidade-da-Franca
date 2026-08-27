@@ -10,10 +10,14 @@ import {
   User,
   Calendar,
   X,
-  AlertCircle
+  AlertCircle,
+  Download
 } from 'lucide-react';
 import { Justification, Member, Session } from '../types/masonic';
 import { isLodgeAdmin } from '../utils/authUtils';
+import { getMemberPhotoUrl } from '../utils/avatarUtils';
+import { sortSessionsByCreationDesc } from '../utils/masonicUtils';
+import { downloadJustificationAttachment } from '../utils/pdfGenerator';
 
 interface JustificationsManagerProps {
   justifications: Justification[];
@@ -167,7 +171,7 @@ export const JustificationsManager: React.FC<JustificationsManagerProps> = ({
                   <div className="flex items-center space-x-3">
                     {member && (
                       <img
-                        src={member.photoUrl}
+                        src={getMemberPhotoUrl(member.photoUrl)}
                         alt=""
                         className="w-10 h-10 rounded-full object-cover ring-1 ring-amber-500/40"
                       />
@@ -215,10 +219,26 @@ export const JustificationsManager: React.FC<JustificationsManagerProps> = ({
 
                   {/* Attachment indicator if present */}
                   {j.fileName && (
-                    <div className="flex items-center space-x-2 bg-slate-800/80 p-2 rounded border border-slate-700 text-amber-300 text-[11px]">
-                      <Paperclip className="w-3.5 h-3.5 text-amber-400" />
-                      <span>Anexo: {j.fileName}</span>
-                    </div>
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        downloadJustificationAttachment(j, member, session);
+                      }}
+                      title={`Clique para baixar o arquivo anexo: ${j.fileName}`}
+                      className="w-full text-left flex items-center justify-between bg-amber-950/40 hover:bg-amber-900/60 active:bg-amber-950 p-2.5 rounded-lg border border-amber-800/60 hover:border-amber-500/80 text-amber-300 hover:text-amber-200 text-xs font-medium transition-all group cursor-pointer shadow-sm"
+                    >
+                      <div className="flex items-center space-x-2 truncate">
+                        <Paperclip className="w-3.5 h-3.5 text-amber-400 group-hover:rotate-12 transition-transform shrink-0" />
+                        <span className="truncate">
+                          Anexo: <strong className="underline underline-offset-2 font-mono text-amber-300 group-hover:text-amber-100 font-semibold">{j.fileName}</strong>
+                        </span>
+                      </div>
+                      <div className="flex items-center space-x-1.5 shrink-0 ml-2 bg-amber-900/80 group-hover:bg-amber-600 text-amber-200 group-hover:text-slate-950 px-2 py-0.5 rounded text-[11px] font-semibold border border-amber-700/60 group-hover:border-amber-500 transition-colors">
+                        <Download className="w-3 h-3" />
+                        <span>Baixar</span>
+                      </div>
+                    </button>
                   )}
 
                   {/* Reviewer Notes if already reviewed */}
@@ -278,7 +298,7 @@ export const JustificationsManager: React.FC<JustificationsManagerProps> = ({
                   onChange={(e) => setFormData({ ...formData, sessionId: e.target.value })}
                   className="w-full bg-slate-950 border border-slate-800 rounded-lg p-2.5 text-slate-200 focus:outline-none focus:border-amber-500"
                 >
-                  {sessions.map((s) => (
+                  {sortSessionsByCreationDesc(sessions).map((s) => (
                     <option key={s.id} value={s.id}>
                       {s.title} ({s.date.split('-').reverse().join('/')})
                     </option>

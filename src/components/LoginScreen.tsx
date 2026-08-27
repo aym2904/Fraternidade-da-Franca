@@ -5,8 +5,7 @@ import {
   AlertCircle,
   Eye,
   EyeOff,
-  User,
-  ShieldCheck,
+  User
 } from 'lucide-react';
 import { Member } from '../types/masonic';
 import { MasonicLogo } from './MasonicLogo';
@@ -16,21 +15,17 @@ interface LoginScreenProps {
   members: Member[];
   onLogin: (member: Member) => void;
   onRegisterMember?: (member: Member) => void;
+  onOpenRegistration?: () => void;
 }
 
 export const LoginScreen: React.FC<LoginScreenProps> = ({
-  members,
+  members = [],
   onLogin,
-  onRegisterMember,
 }) => {
   const [cimInput, setCimInput] = useState<string>('');
   const [passwordInput, setPasswordInput] = useState<string>('');
   const [showPassword, setShowPassword] = useState<boolean>(false);
   const [loginError, setLoginError] = useState<string | null>(null);
-
-  const handleSystemAdminLogin = () => {
-    onLogin(SYSTEM_ADMIN_USER);
-  };
 
   const handleFormSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -44,21 +39,15 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
       return;
     }
 
-    // 1. Check for System Admin account (193245 / admin)
+    // 1. Check for System Admin account (admin / 193245)
     if (
-      cleanInput === '193245' ||
       cleanInput === 'admin' ||
+      cleanInput === '193245' ||
       cleanInput === 'administracao' ||
       cleanInput === 'administração'
     ) {
       const validPass = passwordInput.trim();
-      if (
-        validPass === '19324510' ||
-        validPass === '193245' ||
-        validPass === '123456' ||
-        validPass === 'admin' ||
-        validPass.length >= 4
-      ) {
+      if (validPass === '19324510' || validPass === 'admin' || validPass === '123456') {
         onLogin(SYSTEM_ADMIN_USER);
         return;
       } else {
@@ -76,7 +65,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
     );
 
     if (!targetMember) {
-      setLoginError('Nenhum cadastro encontrado com esta identificação.');
+      setLoginError('Nenhum cadastro encontrado com este CIM / identificação.');
       return;
     }
 
@@ -94,12 +83,12 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
   };
 
   return (
-    <div className="min-h-screen bg-slate-950 flex items-center justify-center p-4 relative overflow-y-auto font-sans">
+    <div className="min-h-screen bg-slate-950 flex flex-col items-center justify-center p-4 sm:p-6 relative overflow-y-auto font-sans">
       {/* Background Ambient Glow */}
-      <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[400px] h-[400px] bg-amber-500/10 rounded-full blur-[140px] pointer-events-none" />
+      <div className="absolute top-1/4 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[500px] h-[500px] bg-amber-500/10 rounded-full blur-[140px] pointer-events-none" />
 
-      {/* Centered Clean Login Card */}
-      <div className="max-w-md w-full bg-slate-900/90 backdrop-blur-xl border border-slate-800 rounded-3xl p-8 shadow-2xl relative z-10 space-y-6">
+      {/* Main Container */}
+      <div className="max-w-md w-full bg-slate-900/95 backdrop-blur-xl border border-slate-800 rounded-3xl p-6 sm:p-8 shadow-2xl relative z-10 space-y-6">
         
         {/* Header Branding */}
         <div className="text-center space-y-3">
@@ -109,9 +98,12 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
             <span className="text-[10px] uppercase tracking-widest font-mono text-amber-400 bg-amber-950/80 px-2.5 py-1 rounded border border-amber-800/50 inline-block mb-1">
               A∴R∴L∴S∴ FRATERNIDADE DA FRANCA Nº3571
             </span>
-            <h1 className="font-serif-masonic text-2xl font-bold text-slate-100 mt-2">
-              Acesso ao Portal
+            <h1 className="font-serif-masonic text-2xl sm:text-3xl font-bold text-slate-100 mt-1">
+              Portal do Obreiro
             </h1>
+            <p className="text-xs text-slate-400 mt-1">
+              Sistema de Controle de Frequência, Balaústres e Gestão Litúrgica
+            </p>
           </div>
         </div>
 
@@ -127,7 +119,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
         <form onSubmit={handleFormSubmit} className="space-y-4">
           <div>
             <label className="block text-[11px] font-medium text-slate-400 uppercase tracking-wider mb-1.5">
-              CIM (Número de Cadastro)
+              CIM (Número de Cadastro) ou Usuário
             </label>
             <div className="relative">
               <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-500">
@@ -140,9 +132,10 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
                   setCimInput(e.target.value);
                   setLoginError(null);
                 }}
-                placeholder="Digite seu CIM"
+                placeholder="Digite seu CIM ou usuário"
                 className="w-full bg-slate-950 border border-slate-800 rounded-xl pl-10 pr-4 py-3 text-xs text-slate-100 placeholder-slate-600 focus:outline-none focus:border-amber-500/80 focus:ring-1 focus:ring-amber-500/30 font-mono transition"
                 required
+                autoComplete="username"
               />
             </div>
           </div>
@@ -165,6 +158,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
                 }}
                 placeholder="Digite sua senha"
                 className="w-full bg-slate-950 border border-slate-800 rounded-xl pl-10 pr-10 py-3 text-xs text-slate-100 placeholder-slate-600 font-mono focus:outline-none focus:border-amber-500/80 focus:ring-1 focus:ring-amber-500/30 transition"
+                autoComplete="current-password"
               />
               <button
                 type="button"
@@ -178,12 +172,19 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
 
           <button
             type="submit"
-            className="w-full bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold text-xs py-3.5 px-4 rounded-xl shadow-lg shadow-amber-500/20 transition flex items-center justify-center space-x-2 uppercase tracking-wider mt-2 cursor-pointer"
+            className="w-full bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold text-xs py-3.5 px-4 rounded-xl shadow-lg shadow-amber-500/20 transition flex items-center justify-center space-x-2 uppercase tracking-wider mt-2 cursor-pointer active:scale-[0.99]"
           >
-            <span>Entrar</span>
+            <span>Acessar Portal</span>
             <ArrowRight className="w-4 h-4" />
           </button>
         </form>
+
+        {/* Footer */}
+        <div className="pt-2 border-t border-slate-800/80 flex items-center justify-center text-xs">
+          <span className="text-[11px] text-slate-500 font-mono tracking-wider">
+            Rito Escocês Antigo e Aceito
+          </span>
+        </div>
       </div>
     </div>
   );

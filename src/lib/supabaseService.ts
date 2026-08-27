@@ -210,20 +210,20 @@ export const supabaseService = {
   },
 
   // 1. MEMBERS CRUD
-  async getMembers(): Promise<Member[]> {
+  async getMembers(): Promise<Member[] | null> {
     try {
       const { data, error } = await supabase.from('members').select('*');
       if (error) {
         console.warn('[Supabase] getMembers error:', error.message);
-        return [];
+        return null;
       }
-      if (!data) return [];
+      if (!data || data.length === 0) return null;
       return (data as Member[]).filter(
         (m) => m.id !== 'admin-1' && m.id !== 'admin_sys' && m.fullName !== 'Administrador do Sistema'
       );
     } catch (err) {
       console.warn('[Supabase] getMembers exception:', err);
-      return [];
+      return null;
     }
   },
 
@@ -264,17 +264,18 @@ export const supabaseService = {
   },
 
   // 2. SESSIONS CRUD
-  async getSessions(): Promise<Session[]> {
+  async getSessions(): Promise<Session[] | null> {
     try {
       const { data, error } = await supabase.from('sessions').select('*');
       if (error) {
         console.warn('[Supabase] getSessions error:', error.message);
-        return [];
+        return null;
       }
+      if (!data || data.length === 0) return null;
       return (data as Session[]) || [];
     } catch (err) {
       console.warn('[Supabase] getSessions exception:', err);
-      return [];
+      return null;
     }
   },
 
@@ -392,17 +393,18 @@ export const supabaseService = {
   },
 
   // 4. VISITORS CRUD
-  async getVisitors(): Promise<VisitorRecord[]> {
+  async getVisitors(): Promise<VisitorRecord[] | null> {
     try {
       const { data, error } = await supabase.from('visitors').select('*');
       if (error) {
         console.warn('[Supabase] getVisitors error:', error.message);
-        return [];
+        return null;
       }
+      if (!data || data.length === 0) return null;
       return (data as VisitorRecord[]) || [];
     } catch (err) {
       console.warn('[Supabase] getVisitors exception:', err);
-      return [];
+      return null;
     }
   },
 
@@ -443,17 +445,18 @@ export const supabaseService = {
   },
 
   // 5. JUSTIFICATIONS CRUD
-  async getJustifications(): Promise<Justification[]> {
+  async getJustifications(): Promise<Justification[] | null> {
     try {
       const { data, error } = await supabase.from('justifications').select('*');
       if (error) {
         console.warn('[Supabase] getJustifications error:', error.message);
-        return [];
+        return null;
       }
+      if (!data || data.length === 0) return null;
       return (data as Justification[]) || [];
     } catch (err) {
       console.warn('[Supabase] getJustifications exception:', err);
-      return [];
+      return null;
     }
   },
 
@@ -494,17 +497,18 @@ export const supabaseService = {
   },
 
   // 6. BALAUSTRES CRUD
-  async getBalaustres(): Promise<Balaustre[]> {
+  async getBalaustres(): Promise<Balaustre[] | null> {
     try {
       const { data, error } = await supabase.from('balaustres').select('*');
       if (error) {
         console.warn('[Supabase] getBalaustres error:', error.message);
-        return [];
+        return null;
       }
+      if (!data || data.length === 0) return null;
       return (data as Balaustre[]) || [];
     } catch (err) {
       console.warn('[Supabase] getBalaustres exception:', err);
-      return [];
+      return null;
     }
   },
 

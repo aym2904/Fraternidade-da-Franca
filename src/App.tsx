@@ -8,7 +8,7 @@ import {
   INITIAL_BALAUSTRES
 } from './data/mockData';
 import { Member, Session, AttendanceRecord, VisitorRecord, Justification, Balaustre } from './types/masonic';
-import { detectInactivityAlerts } from './utils/masonicUtils';
+import { detectInactivityAlerts, sortSessionsByCreationDesc } from './utils/masonicUtils';
 import { supabaseService, SupabaseConnectionStatus } from './lib/supabaseService';
 import { Sidebar } from './components/Sidebar';
 import { TopHeader } from './components/TopHeader';
@@ -22,28 +22,22 @@ import { FrequencyReports } from './components/FrequencyReports';
 import { LoginScreen } from './components/LoginScreen';
 import { PublicMemberRegistrationModal } from './components/PublicMemberRegistrationModal';
 import { SupabaseStatusModal } from './components/SupabaseStatusModal';
-import { isLodgeAdmin, isSystemAdmin } from './utils/authUtils';
+import { EditProfileModal } from './components/EditProfileModal';
+import { isLodgeAdmin, isSystemAdmin, SYSTEM_ADMIN_USER } from './utils/authUtils';
 import { safeSetItem, safeGetItem, safeRemoveItem, safeSaveMembers } from './utils/storageUtils';
 
 export default function App() {
-  // Purge legacy test mock data from LocalStorage if present
+  // Purge obsolete mock test keys if present
   useEffect(() => {
     try {
-      const savedMembers = localStorage.getItem('masonic_members');
+      const savedMembers = safeGetItem('masonic_members');
       if (
         savedMembers &&
         (savedMembers.includes('m1') ||
           savedMembers.includes('Joaquim Silva') ||
-          savedMembers.includes('admin-1') ||
-          savedMembers.includes('admin_sys') ||
-          savedMembers.includes('Administrador do Sistema'))
+          savedMembers.includes('admin-1'))
       ) {
-        localStorage.removeItem('masonic_members');
-        localStorage.removeItem('masonic_sessions');
-        localStorage.removeItem('masonic_attendances');
-        localStorage.removeItem('masonic_visitors');
-        localStorage.removeItem('masonic_justifications');
-        localStorage.removeItem('masonic_balaustres');
+        safeRemoveItem('masonic_members');
       }
     } catch (e) {
       console.error(e);
@@ -52,7 +46,7 @@ export default function App() {
 
   // State with LocalStorage & Supabase fallback
   const [members, setMembers] = useState<Member[]>(() => {
-    const saved = localStorage.getItem('masonic_members');
+    const saved = safeGetItem('masonic_members');
     if (saved) {
       try {
         const parsed = JSON.parse(saved);
@@ -61,7 +55,6 @@ export default function App() {
             (m) =>
               m.id !== 'm1' &&
               m.id !== 'admin-1' &&
-              m.id !== 'admin_sys' &&
               m.fullName !== 'Administrador do Sistema'
           );
           if (cleaned.length > 0) return cleaned;
@@ -74,49 +67,55 @@ export default function App() {
   });
 
   const [sessions, setSessions] = useState<Session[]>(() => {
-    localStorage.removeItem('masonic_sessions');
-    return [];
-  });
-
-  const [attendances, setAttendances] = useState<AttendanceRecord[]>(() => {
-    const saved = localStorage.getItem('masonic_attendances');
+    const saved = safeGetItem('masonic_sessions');
     if (saved) {
       try {
         const parsed = JSON.parse(saved);
-        if (Array.isArray(parsed) && !parsed.some(a => a.id === 'att-1')) return parsed;
+        if (Array.isArray(parsed) && parsed.length > 0) return sortSessionsByCreationDesc(parsed);
+      } catch (e) {}
+    }
+    return sortSessionsByCreationDesc(INITIAL_SESSIONS);
+  });
+
+  const [attendances, setAttendances] = useState<AttendanceRecord[]>(() => {
+    const saved = safeGetItem('masonic_attendances');
+    if (saved) {
+      try {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
       } catch (e) {}
     }
     return INITIAL_ATTENDANCES;
   });
 
   const [visitors, setVisitors] = useState<VisitorRecord[]>(() => {
-    const saved = localStorage.getItem('masonic_visitors');
+    const saved = safeGetItem('masonic_visitors');
     if (saved) {
       try {
         const parsed = JSON.parse(saved);
-        if (Array.isArray(parsed) && !parsed.some(v => v.id === 'v1')) return parsed;
+        if (Array.isArray(parsed)) return parsed;
       } catch (e) {}
     }
     return INITIAL_VISITORS;
   });
 
   const [justifications, setJustifications] = useState<Justification[]>(() => {
-    const saved = localStorage.getItem('masonic_justifications');
+    const saved = safeGetItem('masonic_justifications');
     if (saved) {
       try {
         const parsed = JSON.parse(saved);
-        if (Array.isArray(parsed) && !parsed.some(j => j.id === 'j1')) return parsed;
+        if (Array.isArray(parsed)) return parsed;
       } catch (e) {}
     }
     return INITIAL_JUSTIFICATIONS;
   });
 
   const [balaustres, setBalaustres] = useState<Balaustre[]>(() => {
-    const saved = localStorage.getItem('masonic_balaustres');
+    const saved = safeGetItem('masonic_balaustres');
     if (saved) {
       try {
         const parsed = JSON.parse(saved);
-        if (Array.isArray(parsed) && !parsed.some(b => b.id === 'b-1484')) return parsed;
+        if (Array.isArray(parsed)) return parsed;
       } catch (e) {}
     }
     return INITIAL_BALAUSTRES;
@@ -125,7 +124,7 @@ export default function App() {
   // Logged-in member state (restored from LocalStorage if active)
   const [currentUser, setCurrentUser] = useState<Member | null>(() => {
     try {
-      const saved = localStorage.getItem('masonic_auth_user');
+      const saved = safeGetItem('masonic_auth_user');
       if (saved) {
         const parsed = JSON.parse(saved);
         if (parsed && parsed.id) return parsed;
@@ -136,7 +135,29 @@ export default function App() {
     return null;
   });
 
-  const [activeTab, setActiveTab] = useState<string>('painel');
+  // Impersonation state (when Admin 193245 logs into another member's profile for testing)
+  const [isImpersonating, setIsImpersonating] = useState<boolean>(() => {
+    try {
+      return safeGetItem('masonic_impersonated_by_admin') === 'true';
+    } catch {
+      return false;
+    }
+  });
+
+  const [activeTab, setActiveTab] = useState<string>(() => {
+    try {
+      const params = new URLSearchParams(window.location.search);
+      const tabParam = params.get('tab');
+      if (tabParam) return tabParam;
+      const savedTab = safeGetItem('masonic_active_tab');
+      if (savedTab) return savedTab;
+    } catch (e) {}
+    return 'meu_painel';
+  });
+
+  useEffect(() => {
+    safeSetItem('masonic_active_tab', activeTab);
+  }, [activeTab]);
 
   // Public Self-Registration Modal state (auto-opens if URL has ?cadastro=true, #cadastro, /cadastro or button click)
   const [isPublicRegistrationOpen, setIsPublicRegistrationOpen] = useState<boolean>(() => {
@@ -204,23 +225,18 @@ export default function App() {
 
   // Lateral sidebar state (expanded / collapsed, saved in localStorage)
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState<boolean>(() => {
-    try {
-      return localStorage.getItem('masonic_sidebar_collapsed') === 'true';
-    } catch (e) {
-      return false;
-    }
+    return safeGetItem('masonic_sidebar_collapsed') === 'true';
   });
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState<boolean>(false);
 
   useEffect(() => {
-    try {
-      localStorage.setItem('masonic_sidebar_collapsed', String(isSidebarCollapsed));
-    } catch (e) {}
+    safeSetItem('masonic_sidebar_collapsed', String(isSidebarCollapsed));
   }, [isSidebarCollapsed]);
 
   // Supabase diagnostic and connection status state
   const [supabaseStatus, setSupabaseStatus] = useState<SupabaseConnectionStatus | null>(null);
   const [isSupabaseModalOpen, setIsSupabaseModalOpen] = useState<boolean>(false);
+  const [isEditProfileOpen, setIsEditProfileOpen] = useState<boolean>(false);
 
   const refreshSupabaseStatus = async () => {
     try {
@@ -242,19 +258,29 @@ export default function App() {
           setMembers(remoteMembers);
         }
         const remoteSessions = await supabaseService.getSessions();
-        if (remoteSessions !== null) setSessions(remoteSessions);
+        if (remoteSessions && remoteSessions.length > 0) {
+          setSessions(sortSessionsByCreationDesc(remoteSessions));
+        }
 
         const remoteAttendances = await supabaseService.getAttendances();
-        if (remoteAttendances !== null) setAttendances(remoteAttendances);
+        if (remoteAttendances && remoteAttendances.length > 0) {
+          setAttendances(remoteAttendances);
+        }
 
         const remoteVisitors = await supabaseService.getVisitors();
-        if (remoteVisitors && remoteVisitors.length > 0) setVisitors(remoteVisitors);
+        if (remoteVisitors && remoteVisitors.length > 0) {
+          setVisitors(remoteVisitors);
+        }
 
         const remoteJustifications = await supabaseService.getJustifications();
-        if (remoteJustifications && remoteJustifications.length > 0) setJustifications(remoteJustifications);
+        if (remoteJustifications && remoteJustifications.length > 0) {
+          setJustifications(remoteJustifications);
+        }
 
         const remoteBalaustres = await supabaseService.getBalaustres();
-        if (remoteBalaustres && remoteBalaustres.length > 0) setBalaustres(remoteBalaustres);
+        if (remoteBalaustres && remoteBalaustres.length > 0) {
+          setBalaustres(remoteBalaustres);
+        }
       } catch (err) {
         console.warn('Initial Supabase sync fallback to local:', err);
       }
@@ -267,15 +293,15 @@ export default function App() {
       syncDataFromSupabase();
     });
 
-    // Auto-polling connection re-check & attendance sync every 3s
+    // Auto-polling connection re-check & attendance sync every 10s
     const interval = setInterval(() => {
       refreshSupabaseStatus();
       supabaseService.getAttendances().then((remoteAttendances) => {
-        if (remoteAttendances !== null) {
+        if (remoteAttendances && remoteAttendances.length > 0) {
           setAttendances(remoteAttendances);
         }
       }).catch(() => {});
-    }, 3000);
+    }, 10000);
 
     return () => {
       unsubscribeRealtime();
@@ -318,7 +344,7 @@ export default function App() {
 
   // Keep logged in user object updated when members list changes
   useEffect(() => {
-    if (currentUser && currentUser.id !== 'sys-admin-193245') {
+    if (currentUser && !isSystemAdmin(currentUser)) {
       const updatedUser = members.find((m) => m.id === currentUser.id);
       if (updatedUser && JSON.stringify(updatedUser) !== JSON.stringify(currentUser)) {
         setCurrentUser(updatedUser);
@@ -340,9 +366,10 @@ export default function App() {
           members={members}
           onLogin={(user) => {
             setCurrentUser(user);
-            setActiveTab('painel');
+            setActiveTab('meu_painel');
           }}
           onRegisterMember={handleAddMember}
+          onOpenRegistration={() => setIsPublicRegistrationOpen(true)}
         />
 
         <PublicMemberRegistrationModal
@@ -351,7 +378,7 @@ export default function App() {
           onAddMember={handleAddMember}
           onSuccessLogin={(m) => {
             setCurrentUser(m);
-            setActiveTab('painel');
+            setActiveTab('meu_painel');
           }}
         />
       </>
@@ -359,8 +386,29 @@ export default function App() {
   }
 
   const handleLogout = () => {
+    setIsImpersonating(false);
+    safeRemoveItem('masonic_impersonated_by_admin');
     setCurrentUser(null);
     safeRemoveItem('masonic_auth_user');
+    safeRemoveItem('masonic_active_tab');
+    setActiveTab('meu_painel');
+  };
+
+  const handleImpersonateMember = (targetMember: Member) => {
+    setIsImpersonating(true);
+    safeSetItem('masonic_impersonated_by_admin', 'true');
+    setCurrentUser(targetMember);
+    safeSetItem('masonic_auth_user', JSON.stringify(targetMember));
+    const targetIsAdmin = isLodgeAdmin(targetMember);
+    setActiveTab(targetIsAdmin ? 'painel' : 'meu_painel');
+  };
+
+  const handleExitImpersonation = () => {
+    setIsImpersonating(false);
+    safeRemoveItem('masonic_impersonated_by_admin');
+    setCurrentUser(SYSTEM_ADMIN_USER);
+    safeSetItem('masonic_auth_user', JSON.stringify(SYSTEM_ADMIN_USER));
+    setActiveTab('membros');
   };
 
   const handleSelectUser = (m: Member) => {
@@ -379,6 +427,7 @@ export default function App() {
     supabaseService.upsertMember(updatedMem);
     if (currentUser && currentUser.id === updatedMem.id) {
       setCurrentUser(updatedMem);
+      safeSetItem('masonic_auth_user', JSON.stringify(updatedMem));
     }
   };
 
@@ -394,7 +443,7 @@ export default function App() {
   };
 
   const handleAddSession = (newSess: Session) => {
-    setSessions((prev) => [newSess, ...prev]);
+    setSessions((prev) => sortSessionsByCreationDesc([newSess, ...prev]));
     supabaseService.upsertSession(newSess);
   };
 
@@ -404,7 +453,7 @@ export default function App() {
       console.warn('Não é permitido editar uma sessão cujo Balaústre já foi aprovado.');
       return;
     }
-    setSessions((prev) => prev.map((s) => (s.id === updatedSess.id ? updatedSess : s)));
+    setSessions((prev) => sortSessionsByCreationDesc(prev.map((s) => (s.id === updatedSess.id ? updatedSess : s))));
     supabaseService.upsertSession(updatedSess);
   };
 
@@ -431,11 +480,11 @@ export default function App() {
     setVisitors([]);
     setJustifications([]);
     setBalaustres([]);
-    localStorage.removeItem('masonic_sessions');
-    localStorage.removeItem('masonic_attendances');
-    localStorage.removeItem('masonic_visitors');
-    localStorage.removeItem('masonic_justifications');
-    localStorage.removeItem('masonic_balaustres');
+    safeRemoveItem('masonic_sessions');
+    safeRemoveItem('masonic_attendances');
+    safeRemoveItem('masonic_visitors');
+    safeRemoveItem('masonic_justifications');
+    safeRemoveItem('masonic_balaustres');
     supabaseService.clearAllSessions();
   };
 
@@ -551,10 +600,41 @@ export default function App() {
         setIsMobileOpen={setIsMobileMenuOpen}
         isCollapsed={isSidebarCollapsed}
         setIsCollapsed={setIsSidebarCollapsed}
+        isImpersonating={isImpersonating}
+        onExitImpersonation={handleExitImpersonation}
       />
 
       {/* Main Layout Area */}
       <div className="flex-1 flex flex-col min-w-0 min-h-screen overflow-x-hidden">
+        {/* Master Impersonation Warning Banner */}
+        {isImpersonating && currentUser && (
+          <div className="bg-gradient-to-r from-amber-600 via-amber-500 to-yellow-500 text-slate-950 px-4 py-2 sm:py-2.5 shadow-xl border-b border-amber-600/50 sticky top-0 z-30">
+            <div className="max-w-7xl mx-auto flex flex-wrap items-center justify-between gap-2.5">
+              <div className="flex items-center space-x-2 min-w-0">
+                <span className="p-1 px-1.5 rounded bg-slate-950 text-amber-400 font-mono font-bold text-[10px] sm:text-xs shrink-0">
+                  MASTER ADMIN
+                </span>
+                <p className="text-xs sm:text-sm font-medium truncate">
+                  <strong className="font-bold">Modo de Simulação de Obreiro:</strong> Conectado como{' '}
+                  <strong className="underline underline-offset-2 font-bold">{currentUser.fullName}</strong>{' '}
+                  <span className="opacity-90 hidden sm:inline">
+                    (CIM: {currentUser.cim} • Grau {currentUser.degreeLevel}: {currentUser.degree}
+                    {currentUser.currentOfficerRole ? ` • ${currentUser.currentOfficerRole}` : ''})
+                  </span>
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={handleExitImpersonation}
+                className="bg-slate-950 hover:bg-slate-900 text-amber-300 hover:text-amber-200 border border-slate-800 px-3 py-1 rounded-lg text-xs font-bold transition flex items-center space-x-1.5 shadow-md active:scale-95 shrink-0 ml-auto"
+                title="Encerrar visualização deste obreiro e retornar ao Administrador Master"
+              >
+                <span>Voltar ao Admin Master</span>
+              </button>
+            </div>
+          </div>
+        )}
+
         {/* Top Header Bar */}
         <TopHeader
           activeTab={activeTab}
@@ -569,6 +649,10 @@ export default function App() {
           onOpenMobileMenu={() => setIsMobileMenuOpen(true)}
           isSidebarCollapsed={isSidebarCollapsed}
           onToggleSidebarCollapse={() => setIsSidebarCollapsed((prev) => !prev)}
+          isImpersonating={isImpersonating}
+          onExitImpersonation={handleExitImpersonation}
+          onUpdateMember={handleUpdateMember}
+          onOpenEditProfile={() => setIsEditProfileOpen(true)}
         />
 
         {/* Main Container */}
@@ -587,6 +671,8 @@ export default function App() {
             onQuickCheckIn={() => handleRecordAttendance(currentUser.id, 'QR_CODE')}
             isCurrentUserCheckedIn={isCurrentUserCheckedIn}
             forcePersonalView={activeTab === 'meu_painel' || !isAdmin}
+            onUpdateMember={handleUpdateMember}
+            onOpenEditProfile={() => setIsEditProfileOpen(true)}
           />
         )}
 
@@ -597,6 +683,7 @@ export default function App() {
             onAddMember={handleAddMember}
             onUpdateMember={handleUpdateMember}
             onDeleteMember={handleDeleteMember}
+            onImpersonate={handleImpersonateMember}
             sessions={sessions}
             attendances={attendances}
             justifications={justifications}
@@ -609,6 +696,9 @@ export default function App() {
             members={members}
             currentUser={currentUser}
             balaustres={balaustres}
+            attendances={attendances}
+            visitors={visitors}
+            justifications={justifications}
             onAddSession={handleAddSession}
             onUpdateSession={handleUpdateSession}
             onToggleActiveSession={handleToggleActiveSession}
@@ -721,6 +811,16 @@ export default function App() {
         onClose={handleClosePublicRegistration}
         onAddMember={handleAddMember}
       />
+
+      {/* Obreiro Edit Profile Modal (Meu Perfil) */}
+      {currentUser && (
+        <EditProfileModal
+          isOpen={isEditProfileOpen}
+          onClose={() => setIsEditProfileOpen(false)}
+          currentUser={currentUser}
+          onSave={handleUpdateMember}
+        />
+      )}
     </div>
   );
 }

@@ -17,7 +17,9 @@ import {
   Trash2,
   QrCode,
   Lock,
-  Sparkles
+  Sparkles,
+  LogIn,
+  KeyRound
 } from 'lucide-react';
 import { Member, MasonicDegree, MemberStatus, LodgeOfficerRole, Session, AttendanceRecord, Justification } from '../types/masonic';
 import { calculateMemberAttendance } from '../utils/masonicUtils';
@@ -34,6 +36,7 @@ interface MemberManagementProps {
   onAddMember: (member: Member) => void;
   onUpdateMember: (member: Member) => void;
   onDeleteMember?: (memberId: string) => void;
+  onImpersonate?: (member: Member) => void;
   sessions: Session[];
   attendances: AttendanceRecord[];
   justifications: Justification[];
@@ -45,6 +48,7 @@ export const MemberManagement: React.FC<MemberManagementProps> = ({
   onAddMember,
   onUpdateMember,
   onDeleteMember,
+  onImpersonate,
   sessions = [],
   attendances = [],
   justifications = [],
@@ -244,6 +248,28 @@ export const MemberManagement: React.FC<MemberManagementProps> = ({
         </div>
       </div>
 
+      {/* Master Feature Notice Banner */}
+      {isSysAdmin && (
+        <div className="bg-gradient-to-r from-amber-500/15 via-amber-600/10 to-transparent border border-amber-500/30 rounded-xl p-3.5 flex items-center justify-between gap-3 shadow-sm">
+          <div className="flex items-center space-x-3">
+            <div className="p-2 rounded-lg bg-amber-500/20 text-amber-400 border border-amber-500/40 shrink-0">
+              <LogIn className="w-4 h-4" />
+            </div>
+            <div>
+              <h4 className="text-xs font-bold text-amber-300">
+                Acesso e Simulação de Obreiros (Exclusivo Master Admin)
+              </h4>
+              <p className="text-[11px] text-slate-300">
+                Para entrar e visualizar o sistema como qualquer irmão do quadro, clique no botão dourado <strong className="text-amber-300">"Entrar no Perfil deste Obreiro"</strong> localizado na base de cada card abaixo ou dentro da Prancha Cadastral.
+              </p>
+            </div>
+          </div>
+          <span className="hidden sm:inline-block text-[10px] uppercase font-mono font-bold px-2 py-1 rounded bg-amber-500 text-slate-950 shrink-0">
+            Master Admin
+          </span>
+        </div>
+      )}
+
       {/* Filter and Search Bar */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 bg-slate-900/80 border border-slate-800 p-3 rounded-xl text-xs">
         <div className="relative">
@@ -316,6 +342,18 @@ export const MemberManagement: React.FC<MemberManagementProps> = ({
                   </div>
 
                   <div className="flex items-center space-x-1">
+                    {isSysAdmin && !isSystemAdmin(m) && (
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          onImpersonate?.(m);
+                        }}
+                        className="text-amber-400 hover:text-slate-950 p-1.5 rounded-lg bg-amber-500/10 hover:bg-amber-400 border border-amber-500/30 transition shadow-sm"
+                        title={`Acessar sistema como ${m.fullName} (Exclusivo Master Admin)`}
+                      >
+                        <LogIn className="w-3.5 h-3.5" />
+                      </button>
+                    )}
                     <button
                       onClick={(e) => handleOpenEditModal(m, e)}
                       className="text-slate-500 hover:text-amber-400 p-1.5 rounded-lg hover:bg-slate-800 transition"
@@ -330,7 +368,7 @@ export const MemberManagement: React.FC<MemberManagementProps> = ({
                           setMemberToDelete(m);
                         }}
                         className="text-slate-500 hover:text-rose-400 p-1.5 rounded-lg hover:bg-rose-950/40 transition"
-                        title="Excluir Obreiro (Exclusivo Administrador 193245)"
+                        title="Excluir Obreiro (Exclusivo Administrador Master)"
                       >
                         <Trash2 className="w-3.5 h-3.5" />
                       </button>
@@ -382,6 +420,24 @@ export const MemberManagement: React.FC<MemberManagementProps> = ({
                   )}
                 </div>
               </div>
+
+              {/* Botão de Login Direto no Obreiro (Apenas para Master Admin) */}
+              {isSysAdmin && !isSystemAdmin(m) && (
+                <div className="mt-3 pt-2.5 border-t border-amber-900/30">
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onImpersonate?.(m);
+                    }}
+                    className="w-full flex items-center justify-center space-x-2 py-1.5 px-3 rounded-lg bg-gradient-to-r from-amber-500/15 to-amber-600/20 hover:from-amber-500 hover:to-yellow-500 hover:text-slate-950 border border-amber-500/40 text-amber-300 text-xs font-bold transition duration-150 active:scale-98 shadow-sm group/btn"
+                    title={`Fazer login imediato como ${m.fullName} para visualizar o sistema como este usuário`}
+                  >
+                    <LogIn className="w-3.5 h-3.5 text-amber-400 group-hover/btn:text-slate-950 group-hover/btn:translate-x-0.5 transition-transform" />
+                    <span>Entrar no Perfil deste Obreiro</span>
+                  </button>
+                </div>
+              )}
 
               {/* Bottom Frequency Bar */}
               <div className="mt-4 pt-3 border-t border-slate-800/80 flex items-center justify-between text-xs">
@@ -454,6 +510,27 @@ export const MemberManagement: React.FC<MemberManagementProps> = ({
                       </span>
                     )}
                   </div>
+
+                  {/* Acesso Master Banner no Perfil */}
+                  {isSysAdmin && !isSystemAdmin(selectedMember) && (
+                    <div className="mt-3 flex items-center justify-between p-2.5 rounded-xl bg-amber-500/10 border border-amber-500/30 gap-2">
+                      <div className="text-[11px] text-amber-200">
+                        <strong className="text-amber-300">Simulação Master:</strong> Visualizar o sistema como este usuário.
+                      </div>
+                      <button
+                        onClick={() => {
+                          const target = selectedMember;
+                          setSelectedMember(null);
+                          onImpersonate?.(target);
+                        }}
+                        className="bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold text-xs px-3 py-1.5 rounded-lg flex items-center space-x-1.5 transition shadow-sm active:scale-95 shrink-0"
+                        title={`Fazer login como ${selectedMember.fullName}`}
+                      >
+                        <LogIn className="w-3.5 h-3.5 text-slate-950" />
+                        <span>Entrar no Perfil</span>
+                      </button>
+                    </div>
+                  )}
                 </div>
               </div>
 
@@ -529,22 +606,38 @@ export const MemberManagement: React.FC<MemberManagementProps> = ({
                     </div>
                   </div>
 
-                  {/* Certificate Export & Admin Delete Button */}
+                  {/* Certificate Export, Impersonate & Admin Delete Button */}
                   <div className="pt-3 border-t border-slate-800 flex flex-wrap items-center justify-between gap-2">
-                    {isSysAdmin ? (
-                      <button
-                        onClick={() => {
-                          const target = selectedMember;
-                          setSelectedMember(null);
-                          setMemberToDelete(target);
-                        }}
-                        className="bg-rose-950/70 hover:bg-rose-900 text-rose-300 border border-rose-800/80 font-semibold text-xs px-3.5 py-2 rounded-lg flex items-center space-x-1.5 transition"
-                        title="Excluir Obreiro (Exclusivo Administrador 193245)"
-                      >
-                        <Trash2 className="w-4 h-4 text-rose-400" />
-                        <span>Excluir Obreiro</span>
-                      </button>
-                    ) : <div />}
+                    <div className="flex items-center space-x-2">
+                      {isSysAdmin && !isSystemAdmin(selectedMember) && (
+                        <button
+                          onClick={() => {
+                            const target = selectedMember;
+                            setSelectedMember(null);
+                            onImpersonate?.(target);
+                          }}
+                          className="bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold text-xs px-3.5 py-2 rounded-lg flex items-center space-x-1.5 transition shadow-sm active:scale-95"
+                          title="Acessar sistema como este obreiro"
+                        >
+                          <LogIn className="w-4 h-4 text-slate-950" />
+                          <span>Entrar no Perfil</span>
+                        </button>
+                      )}
+                      {isSysAdmin && (
+                        <button
+                          onClick={() => {
+                            const target = selectedMember;
+                            setSelectedMember(null);
+                            setMemberToDelete(target);
+                          }}
+                          className="bg-rose-950/70 hover:bg-rose-900 text-rose-300 border border-rose-800/80 font-semibold text-xs px-3.5 py-2 rounded-lg flex items-center space-x-1.5 transition"
+                          title="Excluir Obreiro (Exclusivo Administrador Master)"
+                        >
+                          <Trash2 className="w-4 h-4 text-rose-400" />
+                          <span>Excluir Obreiro</span>
+                        </button>
+                      )}
+                    </div>
 
                     <button
                       onClick={() => {
@@ -553,9 +646,9 @@ export const MemberManagement: React.FC<MemberManagementProps> = ({
                           generateAttendanceCertificatePDF(selectedMember, lastSession, 'Placet de Frequência');
                         }
                       }}
-                      className="bg-amber-500 hover:bg-amber-400 text-slate-950 font-semibold text-xs px-4 py-2 rounded-lg flex items-center space-x-2 transition"
+                      className="bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 font-semibold text-xs px-4 py-2 rounded-lg flex items-center space-x-2 transition"
                     >
-                      <FileText className="w-4 h-4" />
+                      <FileText className="w-4 h-4 text-amber-400" />
                       <span>Emitir Placet de Frequência (PDF)</span>
                     </button>
                   </div>
@@ -900,7 +993,7 @@ export const MemberManagement: React.FC<MemberManagementProps> = ({
                       </label>
                       <span className="text-[10px] font-mono text-amber-400 bg-amber-950/60 border border-amber-800/60 px-2 py-0.5 rounded flex items-center space-x-1">
                         <Lock className="w-3 h-3 text-amber-400" />
-                        <span>Visível somente ao Administrador 193245</span>
+                        <span>Visível somente ao Administrador Master</span>
                       </span>
                     </div>
                     <div className="relative">
@@ -935,7 +1028,7 @@ export const MemberManagement: React.FC<MemberManagementProps> = ({
                       setMemberToDelete(target);
                     }}
                     className="bg-rose-950/70 hover:bg-rose-900 text-rose-300 border border-rose-800/80 font-semibold px-3.5 py-2 rounded-lg flex items-center space-x-1.5 transition text-xs"
-                    title="Excluir Obreiro (Exclusivo Administrador 193245)"
+                    title="Excluir Obreiro (Exclusivo Administrador Master)"
                   >
                     <Trash2 className="w-3.5 h-3.5 text-rose-400" />
                     <span>Excluir</span>
@@ -977,7 +1070,7 @@ export const MemberManagement: React.FC<MemberManagementProps> = ({
                   Exclusão Definitiva de Obreiro
                 </h3>
                 <p className="text-[10px] text-amber-400 font-mono">
-                  Prerrogativa exclusiva do Administrador 193245
+                  Prerrogativa exclusiva do Administrador Master
                 </p>
               </div>
               <button

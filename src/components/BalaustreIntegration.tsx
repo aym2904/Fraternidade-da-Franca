@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import {
   FileText,
-  Sparkles,
   Copy,
   Check,
   Award,
@@ -21,7 +20,7 @@ import {
   UserCheck
 } from 'lucide-react';
 import { Balaustre, Session, Member, AttendanceRecord, VisitorRecord } from '../types/masonic';
-import { calculateSessionStats } from '../utils/masonicUtils';
+import { calculateSessionStats, sortSessionsByCreationDesc } from '../utils/masonicUtils';
 import { generateAttendanceCertificatePDF, generateBalaustrePDF } from '../utils/pdfGenerator';
 import { isLodgeAdmin, canAccessBalaustreDegree } from '../utils/authUtils';
 
@@ -46,14 +45,15 @@ export const BalaustreIntegration: React.FC<BalaustreIntegrationProps> = ({
 }) => {
   const isAdmin = isLodgeAdmin(currentUser);
 
-  // Filter accessible sessions by degree (Aprendiz = Grau 1; Companheiro = Graus 1 e 2; Mestre/Admin = Graus 1, 2 e 3)
-  const accessibleSessions = sessions.filter((s) => canAccessBalaustreDegree(currentUser, s.degreeLevel));
+  // Filter accessible sessions by degree, sorted by creation (newest created on top)
+  const accessibleSessions = sortSessionsByCreationDesc(
+    sessions.filter((s) => canAccessBalaustreDegree(currentUser, s.degreeLevel))
+  );
 
   const [selectedSessionId, setSelectedSessionId] = useState<string>(
     accessibleSessions[0]?.id || ''
   );
   const [copied, setCopied] = useState(false);
-  const [isAiGenerating, setIsAiGenerating] = useState(false);
   const [saveFeedback, setSaveFeedback] = useState<{ type: 'success' | 'info'; message: string } | null>(null);
 
   const selectedSession = accessibleSessions.find((s) => s.id === selectedSessionId) || accessibleSessions[0];
@@ -245,44 +245,6 @@ Balaústre lavrado pelo Secretário da Oficina e submetido para aprovação regi
     setTimeout(() => setCopied(false), 2000);
   };
 
-  const handleAiRefineBalaustre = async () => {
-    if (!isAdmin) return;
-    setIsAiGenerating(true);
-    try {
-      const res = await fetch('/api/ai/refine-balaustre', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ prompt: currentTextContent }),
-      });
-
-      if (!res.ok) {
-        throw new Error(`HTTP ${res.status}`);
-      }
-
-      const data = await res.json();
-      if (data?.text) {
-        setCurrentTextContent(data.text);
-      } else {
-        setCurrentTextContent(
-          (prev) =>
-            prev +
-            '\n\n[RESUMO SINTÉTICO GERADO PELA SECRETARIA]: Trabalhos encerrados com a Tronco de Beneficência coberta e saudações maçônicas ao Grão-Mestrado.'
-        );
-      }
-    } catch (err) {
-      console.error('Erro na solicitação de IA:', err);
-      setCurrentTextContent(
-        (prev) =>
-          prev +
-          '\n\n[RESUMO SINTÉTICO GERADO PELA SECRETARIA]: Trabalhos encerrados com a Tronco de Beneficência coberta e saudações maçônicas ao Grão-Mestrado.'
-      );
-    } finally {
-      setIsAiGenerating(false);
-    }
-  };
-
   const isApproved = existingBalaustre?.status === 'Aprovado';
 
   // Se o usuário não tiver sessões permitidas para o seu grau
@@ -428,28 +390,35 @@ Balaústre lavrado pelo Secretário da Oficina e submetido para aprovação regi
             </div>
           )}
 
-          {/* Certificate Generation Action for Admin (All present members) */}
+          {/* Certificate Generation Action for Admin (Visitors only) */}
           {isAdmin && (
             <div className="pt-2">
               <h4 className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider mb-2 flex items-center space-x-1">
                 <Award className="w-3.5 h-3.5 text-amber-400" />
-                <span>Atestados de Presença ({presentMembers.length}):</span>
+                <span>Atestados de Presença - Visitantes ({sessionVisitors.length}):</span>
               </h4>
 
               <div className="max-h-48 overflow-y-auto space-y-1.5 pr-1">
-                {presentMembers.length === 0 ? (
-                  <p className="text-[11px] text-slate-500 italic p-2 bg-slate-950 rounded-lg">Nenhum irmão presente registrado.</p>
+                {sessionVisitors.length === 0 ? (
+                  <p className="text-[11px] text-slate-500 italic p-2 bg-slate-950 rounded-lg border border-slate-800/60">
+                    Nenhum visitante registrado nesta sessão.
+                  </p>
                 ) : (
-                  presentMembers.map((m) => (
+                  sessionVisitors.map((v) => (
                     <div
-                      key={m.id}
+                      key={v.id}
                       className="flex items-center justify-between p-2 bg-slate-950 rounded-lg border border-slate-800 text-xs"
                     >
-                      <span className="truncate font-medium text-slate-200 max-w-[130px]">{m.fullName}</span>
+                      <div className="min-w-0 pr-2">
+                        <p className="truncate font-medium text-slate-200">{v.fullName}</p>
+                        <p className="text-[10px] text-slate-400 truncate">
+                          {v.homeLodge} • CIM {v.cim}
+                        </p>
+                      </div>
                       <button
-                        onClick={() => generateAttendanceCertificatePDF(m, selectedSession, 'Atestado de Presença')}
-                        title="Gerar Atestado de Presença em PDF"
-                        className="bg-amber-500/20 hover:bg-amber-500/40 text-amber-300 border border-amber-500/30 text-[10px] px-2 py-0.5 rounded flex items-center space-x-1 transition active:scale-95"
+                        onClick={() => generateAttendanceCertificatePDF(v, selectedSession, 'Atestado de Presença')}
+                        title="Gerar Atestado de Presença em PDF para o Visitante"
+                        className="bg-amber-500/20 hover:bg-amber-500/40 text-amber-300 border border-amber-500/30 text-[10px] px-2.5 py-1 rounded flex items-center space-x-1 transition active:scale-95 shrink-0 font-medium"
                       >
                         <Download className="w-3 h-3" />
                         <span>PDF</span>
@@ -499,18 +468,6 @@ Balaústre lavrado pelo Secretário da Oficina e submetido para aprovação regi
                   <Download className="w-4 h-4" />
                   <span>Baixar Balaústre em PDF</span>
                 </button>
-
-                {/* AI Refine Button (Only during editing by Admin) */}
-                {isAdmin && isEditingMode && (
-                  <button
-                    onClick={handleAiRefineBalaustre}
-                    disabled={isAiGenerating}
-                    className="bg-purple-950 hover:bg-purple-900 text-purple-200 border border-purple-700 text-xs px-3 py-1.5 rounded-lg flex items-center space-x-1.5 transition"
-                  >
-                    <Sparkles className="w-3.5 h-3.5 text-purple-400" />
-                    <span>{isAiGenerating ? 'Refinando...' : 'Refinar (IA)'}</span>
-                  </button>
-                )}
 
                 {/* Copy Text Button */}
                 <button

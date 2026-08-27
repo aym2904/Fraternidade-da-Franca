@@ -37,6 +37,8 @@ interface SidebarProps {
   setIsMobileOpen: (open: boolean) => void;
   isCollapsed: boolean;
   setIsCollapsed: (collapsed: boolean | ((prev: boolean) => boolean)) => void;
+  isImpersonating?: boolean;
+  onExitImpersonation?: () => void;
 }
 
 export const Sidebar: React.FC<SidebarProps> = ({
@@ -52,6 +54,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
   setIsMobileOpen,
   isCollapsed,
   setIsCollapsed,
+  isImpersonating,
+  onExitImpersonation,
 }) => {
   const isAdmin = isLodgeAdmin(currentUser);
   const badge = getRoleBadgeLabel(currentUser);
@@ -352,6 +356,23 @@ export const Sidebar: React.FC<SidebarProps> = ({
               <span className="text-[10px] text-slate-500 font-mono">Retrair</span>
             )}
           </button>
+
+          {/* Impersonation Indicator in Sidebar */}
+          {isImpersonating && onExitImpersonation && (!isCollapsed || isMobileOpen) && (
+            <div className="p-2.5 bg-amber-500/10 border border-amber-500/30 rounded-xl space-y-1.5 animate-pulse">
+              <div className="text-[10px] text-amber-300 font-bold flex items-center justify-between">
+                <span>Simulação Master</span>
+              </div>
+              <button
+                type="button"
+                onClick={onExitImpersonation}
+                className="w-full py-1.5 px-2 rounded-lg bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold text-[11px] flex items-center justify-center space-x-1.5 transition active:scale-95 shadow-sm"
+              >
+                <LogOut className="w-3.5 h-3.5 text-slate-950" />
+                <span>Voltar ao Admin Master</span>
+              </button>
+            </div>
+          )}
 
           {/* User Quick Info */}
           <div

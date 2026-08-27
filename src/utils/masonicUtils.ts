@@ -1,34 +1,130 @@
-import { Member, Session, AttendanceRecord, Justification, InactivityAlert, MasonicDegreeLevel } from '../types/masonic';
+import {
+  Member,
+  Session,
+  AttendanceRecord,
+  VisitorRecord,
+  Justification,
+  InactivityAlert,
+  MasonicDegreeLevel
+} from '../types/masonic';
 
-export const DEGREE_NAMES: Record<MasonicDegreeLevel, string> = {
-  1: 'Aprendiz',
-  2: 'Companheiro',
-  3: 'Mestre',
-};
+export interface SessionStats {
+  totalEligible: number;
+  totalPresentMembers: number;
+  totalVisitors: number;
+  totalJustified: number;
+  totalAbsent: number;
+  percentagePresent: number;
+}
+
+export interface MemberAttendanceStats {
+  totalEligible: number;
+  totalAttended: number;
+  totalJustified: number;
+  totalMissed: number;
+  percentage: number;
+}
+
+export interface MemberAttendanceItem {
+  session: Session;
+  status: 'Presente' | 'Falta Justificada' | 'Falta Não Justificada';
+  attendance?: AttendanceRecord;
+  justification?: Justification;
+}
+
+export interface MemberAttendanceBreakdown extends MemberAttendanceStats {
+  items: MemberAttendanceItem[];
+}
 
 /**
- * Checks if member's degree level allows attending a session of a given degree level.
- * Rule: Member Degree Level >= Session Degree Level
+ * Checks if a member of a given degree level can attend a session of a given degree level.
+ * In Masonic Law, a higher or equal degree can attend sessions up to their degree.
+ * Degree 1 (Aprendiz) -> Can attend Grau 1
+ * Degree 2 (Companheiro) -> Can attend Grau 1 and 2
+ * Degree 3 (Mestre) -> Can attend Grau 1, 2, and 3
  */
-export function canDegreeAttend(memberDegreeLevel: MasonicDegreeLevel, sessionDegreeLevel: MasonicDegreeLevel): boolean {
+export function canDegreeAttend(
+  memberDegreeLevel: MasonicDegreeLevel | number,
+  sessionDegreeLevel: MasonicDegreeLevel | number
+): boolean {
   return memberDegreeLevel >= sessionDegreeLevel;
 }
 
 /**
- * Calculates attendance statistics for a specific member over all past finished sessions (or within last N sessions).
+ * Sorts sessions in descending order by creation/date.
+ */
+export function sortSessionsByCreationDesc(sessions: Session[]): Session[] {
+  return [...sessions].sort((a, b) => {
+    if (a.createdAt && b.createdAt) {
+      const timeDiff = new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+      if (timeDiff !== 0) return timeDiff;
+    }
+    const dateA = new Date(`${a.date}T${a.time || '00:00'}`).getTime();
+    const dateB = new Date(`${b.date}T${b.time || '00:00'}`).getTime();
+    return dateB - dateA;
+  });
+}
+
+/**
+ * Calculates statistics for a given session.
+ */
+export function calculateSessionStats(
+  session: Session,
+  members: Member[],
+  attendances: AttendanceRecord[],
+  visitors: VisitorRecord[] = [],
+  justifications: Justification[] = []
+): SessionStats {
+  // Eligible members: active members with degree >= session.degreeLevel
+  const eligibleMembers = members.filter((m) => {
+    const isEligibleDegree = canDegreeAttend(m.degreeLevel, session.degreeLevel);
+    const isEligibleStatus = m.status === 'Regular' || m.status === 'Remido' || m.status === 'Emérito';
+    return isEligibleDegree && isEligibleStatus;
+  });
+
+  const sessionAttendances = attendances.filter((a) => a.sessionId === session.id);
+  const presentMemberIds = new Set(sessionAttendances.map((a) => a.memberId));
+
+  const totalEligible = eligibleMembers.length;
+  const totalPresentMembers = eligibleMembers.filter((m) => presentMemberIds.has(m.id)).length;
+  
+  const totalVisitors = visitors.filter((v) => v.sessionId === session.id).length;
+
+  const sessionJustifications = justifications.filter(
+    (j) => j.sessionId === session.id && (j.status === 'Aprovado' || j.status === 'Pendente')
+  );
+  const totalJustified = sessionJustifications.length;
+
+  const totalAbsent = Math.max(0, totalEligible - totalPresentMembers);
+  const percentagePresent = totalEligible > 0 ? Math.round((totalPresentMembers / totalEligible) * 100) : 0;
+
+  return {
+    totalEligible,
+    totalPresentMembers,
+    totalVisitors,
+    totalJustified,
+    totalAbsent,
+    percentagePresent,
+  };
+}
+
+/**
+ * Calculates attendance statistics for a specific member across all eligible sessions.
  */
 export function calculateMemberAttendance(
-  member: Member,
+  memberOrId: Member | string,
   sessions: Session[],
   attendances: AttendanceRecord[],
-  justifications: Justification[]
-) {
-  // Only consider finished/inactive or past sessions
-  const eligibleSessions = sessions.filter(
-    (s) => canDegreeAttend(member.degreeLevel, s.degreeLevel) && (!s.active || s.date <= new Date().toISOString().split('T')[0])
-  );
+  justifications: Justification[] = []
+): MemberAttendanceStats {
+  const memberId = typeof memberOrId === 'string' ? memberOrId : memberOrId.id;
+  const degreeLevel = typeof memberOrId === 'object' ? memberOrId.degreeLevel : 3;
 
-  if (eligibleSessions.length === 0) {
+  // Filter sessions that this member is eligible to attend (degreeLevel >= session.degreeLevel)
+  const eligibleSessions = sessions.filter((s) => canDegreeAttend(degreeLevel, s.degreeLevel));
+  const totalEligible = eligibleSessions.length;
+
+  if (totalEligible === 0) {
     return {
       totalEligible: 0,
       totalAttended: 0,
@@ -42,12 +138,12 @@ export function calculateMemberAttendance(
   let totalJustified = 0;
 
   eligibleSessions.forEach((s) => {
-    const isAttended = attendances.some((a) => a.sessionId === s.id && a.memberId === member.id);
-    if (isAttended) {
+    const wasPresent = attendances.some((a) => a.sessionId === s.id && a.memberId === memberId);
+    if (wasPresent) {
       totalAttended++;
     } else {
       const isJustified = justifications.some(
-        (j) => j.sessionId === s.id && j.memberId === member.id && j.status === 'Aprovado'
+        (j) => j.sessionId === s.id && j.memberId === memberId && j.status === 'Aprovado'
       );
       if (isJustified) {
         totalJustified++;
@@ -55,12 +151,13 @@ export function calculateMemberAttendance(
     }
   });
 
-  const totalMissed = eligibleSessions.length - totalAttended - totalJustified;
-  // Regimental percentage calculation: (Attended + Justified) / Total
-  const percentage = Math.round(((totalAttended + totalJustified) / eligibleSessions.length) * 100);
+  const totalMissed = Math.max(0, totalEligible - totalAttended - totalJustified);
+  // Regimental percentage: (attended + justified) / totalEligible or attended / totalEligible
+  // In Freemasonry, percentage is typically calculated on effective presence or presence + approved justifications
+  const percentage = Math.round(((totalAttended + totalJustified) / totalEligible) * 100);
 
   return {
-    totalEligible: eligibleSessions.length,
+    totalEligible,
     totalAttended,
     totalJustified,
     totalMissed,
@@ -69,60 +166,95 @@ export function calculateMemberAttendance(
 }
 
 /**
- * Detects members who have missed 3 or more CONSECUTIVE sessions without approved justification.
- * (Regulamento Geral alert)
+ * Returns a detailed breakdown of attendance session-by-session for a specific member.
+ */
+export function getMemberAttendanceBreakdown(
+  member: Member,
+  sessions: Session[],
+  attendances: AttendanceRecord[],
+  justifications: Justification[] = []
+): MemberAttendanceBreakdown {
+  const stats = calculateMemberAttendance(member, sessions, attendances, justifications);
+  const eligibleSessions = sortSessionsByCreationDesc(
+    sessions.filter((s) => canDegreeAttend(member.degreeLevel, s.degreeLevel))
+  );
+
+  const items: MemberAttendanceItem[] = eligibleSessions.map((session) => {
+    const att = attendances.find((a) => a.sessionId === session.id && a.memberId === member.id);
+    const just = justifications.find(
+      (j) => j.sessionId === session.id && j.memberId === member.id
+    );
+
+    let status: 'Presente' | 'Falta Justificada' | 'Falta Não Justificada' = 'Falta Não Justificada';
+    if (att) {
+      status = 'Presente';
+    } else if (just && just.status === 'Aprovado') {
+      status = 'Falta Justificada';
+    }
+
+    return {
+      session,
+      status,
+      attendance: att,
+      justification: just,
+    };
+  });
+
+  return {
+    ...stats,
+    items,
+  };
+}
+
+/**
+ * Detects inactivity / consecutive absences alerts for lodge members (3 or more consecutive unexcused absences).
  */
 export function detectInactivityAlerts(
   members: Member[],
   sessions: Session[],
   attendances: AttendanceRecord[],
-  justifications: Justification[]
+  justifications: Justification[] = []
 ): InactivityAlert[] {
   const alerts: InactivityAlert[] = [];
-
-  // Sort past sessions by date descending
-  const pastSessions = [...sessions]
-    .filter((s) => s.date <= new Date().toISOString().split('T')[0])
-    .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+  const sortedSessions = sortSessionsByCreationDesc(sessions);
 
   members.forEach((member) => {
-    if (member.status === 'Licenciado' || member.status === 'Placet' || member.status === 'Remido') {
-      return; // License/Adormecido members exempted
-    }
+    // Only check active members
+    if (member.status !== 'Regular') return;
 
-    // Filter sessions this member was eligible to attend
-    const memberSessions = pastSessions.filter((s) => canDegreeAttend(member.degreeLevel, s.degreeLevel));
+    const eligibleSessions = sortedSessions.filter((s) =>
+      canDegreeAttend(member.degreeLevel, s.degreeLevel)
+    );
 
     let consecutiveAbsences = 0;
     const missedSessionIds: string[] = [];
+    let lastAttendedDate: string | undefined;
 
-    for (const session of memberSessions) {
-      const attended = attendances.some((a) => a.sessionId === session.id && a.memberId === member.id);
-      const justified = justifications.some(
-        (j) => j.sessionId === session.id && j.memberId === member.id && j.status === 'Aprovado'
+    for (const session of eligibleSessions) {
+      const wasPresent = attendances.some(
+        (a) => a.sessionId === session.id && a.memberId === member.id
       );
 
-      if (!attended && !justified) {
-        consecutiveAbsences++;
-        missedSessionIds.push(session.id);
+      if (wasPresent) {
+        if (!lastAttendedDate) {
+          lastAttendedDate = session.date;
+        }
+        break; // Stop counting consecutive missed sessions at the most recent attendance
       } else {
-        // Streak broken
-        break;
+        const isJustified = justifications.some(
+          (j) => j.sessionId === session.id && j.memberId === member.id && j.status === 'Aprovado'
+        );
+        if (!isJustified) {
+          consecutiveAbsences++;
+          missedSessionIds.push(session.id);
+        } else {
+          // A justified absence breaks the consecutive non-justified absence chain
+          break;
+        }
       }
     }
 
     if (consecutiveAbsences >= 3) {
-      // Find last attended session date if any
-      const lastAttendedAttendance = attendances
-        .filter((a) => a.memberId === member.id)
-        .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())[0];
-
-      let lastAttendedDate: string | undefined;
-      if (lastAttendedAttendance) {
-        const sess = sessions.find((s) => s.id === lastAttendedAttendance.sessionId);
-        if (sess) lastAttendedDate = sess.date;
-      }
-
       alerts.push({
         memberId: member.id,
         consecutiveAbsences,
@@ -133,40 +265,4 @@ export function detectInactivityAlerts(
   });
 
   return alerts;
-}
-
-/**
- * Calculates current real-time stats for a given session.
- */
-export function calculateSessionStats(
-  session: Session,
-  members: Member[],
-  attendances: AttendanceRecord[],
-  visitors: any[],
-  justifications: Justification[]
-) {
-  const eligibleMembers = members.filter(
-    (m) => canDegreeAttend(m.degreeLevel, session.degreeLevel) && m.status !== 'Placet'
-  );
-
-  const sessionAttendances = attendances.filter((a) => a.sessionId === session.id);
-  const sessionVisitors = visitors.filter((v) => v.sessionId === session.id);
-  const sessionJustified = justifications.filter(
-    (j) => j.sessionId === session.id && j.status === 'Aprovado'
-  );
-
-  const presentMemberIds = new Set(sessionAttendances.map((a) => a.memberId));
-  const totalPresentMembers = presentMemberIds.size;
-  const totalEligible = eligibleMembers.length;
-
-  const percentagePresent = totalEligible > 0 ? Math.round((totalPresentMembers / totalEligible) * 100) : 0;
-
-  return {
-    totalEligible,
-    totalPresentMembers,
-    totalVisitors: sessionVisitors.length,
-    totalJustified: sessionJustified.length,
-    totalAbsent: Math.max(0, totalEligible - totalPresentMembers - sessionJustified.length),
-    percentagePresent,
-  };
 }

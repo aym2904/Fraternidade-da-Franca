@@ -1,6 +1,7 @@
 import React, { Component, ErrorInfo, ReactNode } from 'react';
 import { AlertTriangle, RefreshCw, LogOut } from 'lucide-react';
 import { MasonicLogo } from './MasonicLogo';
+import { safeRemoveItem } from '../utils/storageUtils';
 
 interface Props {
   children: ReactNode;
@@ -34,13 +35,13 @@ export class ErrorBoundary extends Component<Props, State> {
 
   private handleResetCache = () => {
     try {
-      localStorage.removeItem('masonic_members');
-      localStorage.removeItem('masonic_sessions');
-      localStorage.removeItem('masonic_attendances');
-      localStorage.removeItem('masonic_visitors');
-      localStorage.removeItem('masonic_justifications');
-      localStorage.removeItem('masonic_balaustres');
-      localStorage.removeItem('masonic_auth_user');
+      safeRemoveItem('masonic_members');
+      safeRemoveItem('masonic_sessions');
+      safeRemoveItem('masonic_attendances');
+      safeRemoveItem('masonic_visitors');
+      safeRemoveItem('masonic_justifications');
+      safeRemoveItem('masonic_balaustres');
+      safeRemoveItem('masonic_auth_user');
       window.location.href = window.location.origin + window.location.pathname;
     } catch {
       window.location.reload();

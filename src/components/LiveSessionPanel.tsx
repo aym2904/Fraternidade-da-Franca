@@ -664,7 +664,7 @@ export const LiveSessionPanel: React.FC<LiveSessionPanelProps> = ({
                   }`}
                 >
                   <div className="flex items-center space-x-3">
-                    <img src={m.photoUrl} alt="" className="w-9 h-9 rounded-full object-cover ring-1 ring-slate-700" />
+                    <img src={getMemberPhotoUrl(m.photoUrl)} alt="" className="w-9 h-9 rounded-full object-cover ring-1 ring-slate-700" />
                     <div>
                       <div className="flex items-center space-x-2">
                         <p className="text-xs font-semibold text-slate-200">{m.fullName}</p>

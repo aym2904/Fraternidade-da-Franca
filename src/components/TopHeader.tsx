@@ -17,7 +17,8 @@ import {
   ShieldAlert,
   QrCode,
   Camera,
-  UserCheck
+  UserCheck,
+  UserCog
 } from 'lucide-react';
 import { Member } from '../types/masonic';
 import { isLodgeAdmin, isSystemAdmin, getRoleBadgeLabel } from '../utils/authUtils';
@@ -38,6 +39,10 @@ interface TopHeaderProps {
   onOpenMobileMenu: () => void;
   isSidebarCollapsed?: boolean;
   onToggleSidebarCollapse?: () => void;
+  isImpersonating?: boolean;
+  onExitImpersonation?: () => void;
+  onUpdateMember?: (member: Member) => void;
+  onOpenEditProfile?: () => void;
 }
 
 export const TopHeader: React.FC<TopHeaderProps> = ({
@@ -52,6 +57,10 @@ export const TopHeader: React.FC<TopHeaderProps> = ({
   onOpenMobileMenu,
   isSidebarCollapsed,
   onToggleSidebarCollapse,
+  isImpersonating,
+  onExitImpersonation,
+  onUpdateMember,
+  onOpenEditProfile,
 }) => {
   const isAdmin = isLodgeAdmin(currentUser);
   const isSysAdmin = isSystemAdmin(currentUser);
@@ -147,6 +156,20 @@ export const TopHeader: React.FC<TopHeaderProps> = ({
 
         {/* Right: Active Session Indicator, Supabase Badge & User Menu */}
         <div className="flex items-center space-x-2 sm:space-x-3 shrink-0">
+          {/* Sair da Simulação Quick Pill (se estiver no modo simulação) */}
+          {isImpersonating && onExitImpersonation && (
+            <button
+              type="button"
+              onClick={onExitImpersonation}
+              className="flex items-center space-x-1.5 px-3 py-1 sm:py-1.5 rounded-full bg-amber-500 hover:bg-amber-400 text-slate-950 text-xs font-bold shadow-md transition active:scale-95 animate-pulse"
+              title="Encerrar visualização simulada e retornar ao Administrador Master"
+            >
+              <LogOut className="w-3.5 h-3.5 text-slate-950" />
+              <span className="hidden sm:inline">Voltar ao Admin Master</span>
+              <span className="sm:hidden">Voltar Master</span>
+            </button>
+          )}
+
           {/* Live Session Quick Pill */}
           {hasActiveSession && (
             <button
@@ -160,12 +183,12 @@ export const TopHeader: React.FC<TopHeaderProps> = ({
             </button>
           )}
 
-          {/* Supabase Connection Quick Badge (System Admin 193245 only) */}
+          {/* Supabase Connection Quick Badge (System Admin only) */}
           {isSysAdmin && onOpenSupabaseModal && (
             <button
               type="button"
               onClick={onOpenSupabaseModal}
-              title="Status do Banco de Dados Supabase (Exclusivo Administrador 193245)"
+              title="Status do Banco de Dados Supabase (Exclusivo Administrador)"
               className={`hidden md:flex items-center space-x-1.5 px-2.5 py-1.5 rounded-xl text-[11px] font-semibold border transition active:scale-95 ${
                 supabaseStatus?.hasTables
                   ? 'bg-emerald-950/70 border-emerald-700/60 text-emerald-300 hover:bg-emerald-900/80 shadow-sm'
@@ -243,6 +266,26 @@ export const TopHeader: React.FC<TopHeaderProps> = ({
                   </div>
                 </div>
 
+                {/* Meu Perfil Button */}
+                <div className="pb-2">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setIsUserMenuOpen(false);
+                      onOpenEditProfile?.();
+                    }}
+                    className="w-full text-left px-3 py-2 text-xs text-amber-300 bg-amber-950/40 hover:bg-amber-900/60 border border-amber-800/50 rounded-xl flex items-center justify-between font-semibold transition group"
+                  >
+                    <div className="flex items-center space-x-2">
+                      <UserCog className="w-4 h-4 text-amber-400 group-hover:scale-110 transition-transform" />
+                      <span>Meu Perfil</span>
+                    </div>
+                    <span className="text-[10px] font-mono bg-amber-900/80 text-amber-200 px-1.5 py-0.5 rounded border border-amber-700/50">
+                      Perfil
+                    </span>
+                  </button>
+                </div>
+
                 {/* Supabase Status Button inside menu (System Admin 193245 only) */}
                 {isSysAdmin && onOpenSupabaseModal && (
                   <div className="pt-2">
@@ -259,6 +302,27 @@ export const TopHeader: React.FC<TopHeaderProps> = ({
                       </div>
                       <span className="text-[10px] font-mono bg-emerald-900/80 text-emerald-200 px-1.5 py-0.5 rounded border border-emerald-700/50">
                         {supabaseStatus?.hasTables ? 'OK' : 'Diagnóstico'}
+                      </span>
+                    </button>
+                  </div>
+                )}
+
+                {/* Retornar para o Administrador Master (quando em modo simulação) */}
+                {isImpersonating && onExitImpersonation && (
+                  <div className="pt-2">
+                    <button
+                      onClick={() => {
+                        setIsUserMenuOpen(false);
+                        onExitImpersonation();
+                      }}
+                      className="w-full text-left px-3 py-2.5 text-xs text-amber-300 bg-amber-950/60 hover:bg-amber-900/80 border border-amber-500/60 rounded-xl flex items-center justify-between font-bold transition shadow-sm group"
+                    >
+                      <div className="flex items-center space-x-2">
+                        <LogOut className="w-4 h-4 text-amber-400 group-hover:scale-110 transition-transform" />
+                        <span>Voltar ao Admin Master</span>
+                      </div>
+                      <span className="text-[10px] font-mono bg-amber-900 text-amber-200 px-1.5 py-0.5 rounded border border-amber-700/50">
+                        Master
                       </span>
                     </button>
                   </div>

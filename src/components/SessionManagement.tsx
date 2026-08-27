@@ -16,14 +16,18 @@ import {
   Edit3,
   CheckCircle2,
 } from 'lucide-react';
-import { Session, SessionType, SessionSubtype, MasonicDegree, Member, LodgeOfficerRole, Balaustre } from '../types/masonic';
+import { Session, SessionType, SessionSubtype, MasonicDegree, Member, LodgeOfficerRole, Balaustre, AttendanceRecord, VisitorRecord, Justification } from '../types/masonic';
 import { isLodgeAdmin, isSystemAdmin, canAccessSessionDegree } from '../utils/authUtils';
+import { calculateSessionStats, sortSessionsByCreationDesc } from '../utils/masonicUtils';
 
 interface SessionManagementProps {
   sessions: Session[];
   members: Member[];
   currentUser: Member;
   balaustres?: Balaustre[];
+  attendances?: AttendanceRecord[];
+  visitors?: VisitorRecord[];
+  justifications?: Justification[];
   onAddSession: (session: Session) => void;
   onUpdateSession: (session: Session) => void;
   onToggleActiveSession: (sessionId: string) => void;
@@ -74,6 +78,9 @@ export const SessionManagement: React.FC<SessionManagementProps> = ({
   members = [],
   currentUser,
   balaustres = [],
+  attendances = [],
+  visitors = [],
+  justifications = [],
   onAddSession,
   onUpdateSession,
   onToggleActiveSession,
@@ -87,8 +94,10 @@ export const SessionManagement: React.FC<SessionManagementProps> = ({
   const [sessionToDelete, setSessionToDelete] = useState<Session | null>(null);
   const [isClearAllModalOpen, setIsClearAllModalOpen] = useState(false);
 
-  // Filter sessions according to user's degree and administrative permissions
-  const visibleSessions = sessions.filter((s) => canAccessSessionDegree(currentUser, s.degreeLevel));
+  // Filter sessions according to user's degree and administrative permissions, ordered by creation (newest on top)
+  const visibleSessions = sortSessionsByCreationDesc(
+    sessions.filter((s) => canAccessSessionDegree(currentUser, s.degreeLevel))
+  );
 
   const [formData, setFormData] = useState<Partial<Session>>({
     title: '',
@@ -249,20 +258,22 @@ export const SessionManagement: React.FC<SessionManagementProps> = ({
         ...(formData as Session),
       });
     } else {
+      const now = new Date();
       const newSess: Session = {
-        id: 's-' + Date.now(),
+        id: 's-' + now.getTime(),
         title: formData.title || 'Nova Sessão Maçônica',
         type: (formData.type as SessionType) || 'Ordinária',
         subtype: formData.subtype as SessionSubtype,
         degree: (formData.degree as MasonicDegree) || 'Aprendiz',
         degreeLevel: formData.degreeLevel || 1,
-        date: formData.date || new Date().toISOString().split('T')[0],
+        date: formData.date || now.toISOString().split('T')[0],
         time: formData.time || '20:00',
         location: formData.location || 'Templo da Loja - Oriente de Franca/SP',
-        qrCodeToken: `QR-${formData.degree?.[0]}${Math.floor(1000 + Math.random() * 9000)}-FRATERNIDADE3571-${Date.now()}`,
+        qrCodeToken: `QR-${formData.degree?.[0]}${Math.floor(1000 + Math.random() * 9000)}-FRATERNIDADE3571-${now.getTime()}`,
         active: false,
         officers: formData.officers || {},
         notes: formData.notes,
+        createdAt: now.toISOString(),
       };
       onAddSession(newSess);
     }
@@ -291,10 +302,10 @@ export const SessionManagement: React.FC<SessionManagementProps> = ({
               <button
                 onClick={() => setIsClearAllModalOpen(true)}
                 className="bg-rose-950/80 hover:bg-rose-900 text-rose-300 border border-rose-800 font-semibold text-xs px-3.5 py-2.5 rounded-lg flex items-center space-x-2 transition"
-                title="Apenas Administrador do Sistema (193245)"
+                title="Apenas Administrador do Sistema (Master)"
               >
                 <Trash2 className="w-4 h-4 text-rose-400" />
-                <span>Apagar Todas as Sessões (Admin 193245)</span>
+                <span>Apagar Todas as Sessões (Admin Master)</span>
               </button>
             )}
 
@@ -319,6 +330,7 @@ export const SessionManagement: React.FC<SessionManagementProps> = ({
           visibleSessions.map((s) => {
             const sessionBalaustre = balaustres.find((b) => b.sessionId === s.id);
             const isBalaustreApproved = sessionBalaustre?.status === 'Aprovado';
+            const sessionStats = calculateSessionStats(s, members, attendances, visitors, justifications);
 
             return (
               <div
@@ -331,34 +343,61 @@ export const SessionManagement: React.FC<SessionManagementProps> = ({
                     : 'border-slate-800 hover:border-slate-700'
                 }`}
               >
+                {/* Top Badge & Sutil Indicator Row */}
+                <div className="flex flex-wrap items-center justify-between gap-2.5 mb-3 pb-3 border-b border-slate-800/60">
+                  <div className="flex flex-wrap items-center gap-2">
+                    {s.active ? (
+                      <span className="bg-emerald-500/20 text-emerald-400 border border-emerald-500/40 text-[11px] font-bold px-2.5 py-0.5 rounded-full flex items-center space-x-1">
+                        <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+                        <span>SESSÃO ATIVA AGORA</span>
+                      </span>
+                    ) : isBalaustreApproved ? (
+                      <span className="bg-emerald-950/90 text-emerald-300 border border-emerald-500/50 text-[11px] font-bold px-2.5 py-0.5 rounded-full flex items-center space-x-1 shadow-sm">
+                        <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
+                        <span>Balaústre Aprovado • Sessão Imutável</span>
+                      </span>
+                    ) : (
+                      <span className="bg-slate-800 text-slate-400 text-[11px] px-2.5 py-0.5 rounded-full border border-slate-700">
+                        Sessão Registrada
+                      </span>
+                    )}
+
+                    <span className="bg-amber-950 text-amber-300 border border-amber-800/80 text-[11px] px-2.5 py-0.5 rounded font-mono font-semibold">
+                      Grau: {s.degree} ({s.degreeLevel}º Grau)
+                    </span>
+
+                    <span className="bg-slate-800 text-slate-300 text-[11px] px-2.5 py-0.5 rounded">
+                      Tipo: {s.type} {s.subtype ? `• ${s.subtype}` : ''}
+                    </span>
+                  </div>
+
+                  {/* Canto Superior Direito: Presença do Quadro e Visitantes (Sutil) */}
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span
+                      className="inline-flex items-center space-x-1.5 px-2.5 py-1 rounded-md bg-slate-950/80 border border-slate-800/90 text-[11px] text-slate-300 shadow-sm"
+                      title={`Presença do Quadro da Loja: ${sessionStats.totalPresentMembers} de ${sessionStats.totalEligible} irmãos do grau presentes (${sessionStats.percentagePresent}%)`}
+                    >
+                      <Users className="w-3.5 h-3.5 text-amber-400/90" />
+                      <span>
+                        <strong className="text-amber-300 font-semibold">{sessionStats.percentagePresent}%</strong> presentes
+                        <span className="text-slate-400 ml-1">({sessionStats.totalPresentMembers}/{sessionStats.totalEligible})</span>
+                      </span>
+                    </span>
+
+                    <span
+                      className="inline-flex items-center space-x-1.5 px-2.5 py-1 rounded-md bg-slate-950/80 border border-slate-800/90 text-[11px] text-slate-300 shadow-sm"
+                      title={`Irmãos Visitantes registrados nesta sessão: ${sessionStats.totalVisitors}`}
+                    >
+                      <Building2 className="w-3.5 h-3.5 text-cyan-400/90" />
+                      <span>
+                        <strong className="text-cyan-300 font-semibold">{sessionStats.totalVisitors}</strong> {sessionStats.totalVisitors === 1 ? 'visitante' : 'visitantes'}
+                      </span>
+                    </span>
+                  </div>
+                </div>
+
                 <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
                   <div className="space-y-2">
-                    <div className="flex flex-wrap items-center gap-2">
-                      {s.active ? (
-                        <span className="bg-emerald-500/20 text-emerald-400 border border-emerald-500/40 text-[11px] font-bold px-2.5 py-0.5 rounded-full flex items-center space-x-1">
-                          <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
-                          <span>SESSÃO ATIVA AGORA</span>
-                        </span>
-                      ) : isBalaustreApproved ? (
-                        <span className="bg-emerald-950/90 text-emerald-300 border border-emerald-500/50 text-[11px] font-bold px-2.5 py-0.5 rounded-full flex items-center space-x-1 shadow-sm">
-                          <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
-                          <span>Balaústre Aprovado • Sessão Imutável</span>
-                        </span>
-                      ) : (
-                        <span className="bg-slate-800 text-slate-400 text-[11px] px-2.5 py-0.5 rounded-full border border-slate-700">
-                          Sessão Registrada
-                        </span>
-                      )}
-
-                      <span className="bg-amber-950 text-amber-300 border border-amber-800/80 text-[11px] px-2.5 py-0.5 rounded font-mono font-semibold">
-                        Grau: {s.degree} ({s.degreeLevel}º Grau)
-                      </span>
-
-                      <span className="bg-slate-800 text-slate-300 text-[11px] px-2.5 py-0.5 rounded">
-                        Tipo: {s.type} {s.subtype ? `• ${s.subtype}` : ''}
-                      </span>
-                    </div>
-
                     <h3 className="font-serif-masonic text-lg font-bold text-slate-100">
                       {s.title}
                     </h3>
@@ -432,12 +471,12 @@ export const SessionManagement: React.FC<SessionManagementProps> = ({
                         </button>
                       )}
 
-                      {/* Delete button: strictly reserved for System Administrator (193245) */}
+                      {/* Delete button: strictly reserved for System Administrator */}
                       {isSysAdmin && (
                         <button
                           onClick={() => setSessionToDelete(s)}
                           className="p-2 rounded-lg bg-slate-950 border border-slate-800 text-slate-400 hover:text-rose-400 hover:border-rose-800 hover:bg-rose-950/30 transition"
-                          title="Apagar esta sessão (Exclusivo Administrador 193245)"
+                          title="Apagar esta sessão (Exclusivo Administrador Master)"
                         >
                           <Trash2 className="w-4 h-4" />
                         </button>
@@ -688,7 +727,7 @@ export const SessionManagement: React.FC<SessionManagementProps> = ({
                 </div>
                 <div>
                   <span className="text-[10px] font-mono font-bold uppercase tracking-wider text-rose-400 bg-rose-950/80 px-2 py-0.5 rounded border border-rose-800/60">
-                    Exclusão Restrita — Admin 193245
+                    Exclusão Restrita — Admin Master
                   </span>
                   <h3 className="font-serif-masonic text-base sm:text-lg font-bold text-slate-100 mt-0.5">
                     Confirmar Exclusão de Sessão
@@ -739,7 +778,7 @@ export const SessionManagement: React.FC<SessionManagementProps> = ({
               </div>
 
               <p className="text-[11px] text-slate-400">
-                Esta ação é irrevogável e foi autorizada para o seu usuário (Administrador CIM 193245).
+                Esta ação é irrevogável e foi autorizada para o seu usuário (Administrador Master).
               </p>
             </div>
 
@@ -782,7 +821,7 @@ export const SessionManagement: React.FC<SessionManagementProps> = ({
                 </div>
                 <div>
                   <span className="text-[10px] font-mono font-bold uppercase tracking-wider text-rose-400 bg-rose-950/80 px-2 py-0.5 rounded border border-rose-800/60">
-                    Ação Global — Admin 193245
+                    Ação Global — Admin Master
                   </span>
                   <h3 className="font-serif-masonic text-base sm:text-lg font-bold text-slate-100 mt-0.5">
                     Apagar Todas as Sessões e Histórico
