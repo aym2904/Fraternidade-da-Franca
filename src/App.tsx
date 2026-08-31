@@ -494,37 +494,10 @@ export default function App() {
   }, [members]);
 
   // Handlers with Supabase sync
-  const handleAddMember = (newMem: Member) => {
+  const handleAddMember = useCallback((newMem: Member) => {
     setMembers((prev) => [newMem, ...prev]);
     supabaseService.upsertMember(newMem);
-  };
-
-  // Auth check gate
-  if (!currentUser) {
-    return (
-      <>
-        <LoginScreen
-          members={members}
-          onLogin={(user) => {
-            setCurrentUser(user);
-            setActiveTab('meu_painel');
-          }}
-          onRegisterMember={handleAddMember}
-          onOpenRegistration={() => setIsPublicRegistrationOpen(true)}
-        />
-
-        <PublicMemberRegistrationModal
-          isOpen={isPublicRegistrationOpen}
-          onClose={handleClosePublicRegistration}
-          onAddMember={handleAddMember}
-          onSuccessLogin={(m) => {
-            setCurrentUser(m);
-            setActiveTab('meu_painel');
-          }}
-        />
-      </>
-    );
-  }
+  }, []);
 
   const handleLogout = useCallback(() => {
     setIsImpersonating(false);
@@ -698,12 +671,39 @@ export default function App() {
   }, []);
 
   const isCurrentUserCheckedIn = useMemo(() => {
-    return activeSession
+    return activeSession && currentUser
       ? attendances.some((a) => a.sessionId === activeSession.id && a.memberId === currentUser.id)
       : false;
-  }, [activeSession, attendances, currentUser.id]);
+  }, [activeSession, attendances, currentUser]);
 
   const isAdmin = useMemo(() => isLodgeAdmin(currentUser), [currentUser]);
+
+  // Auth check gate (placed unconditionally after all component hooks)
+  if (!currentUser) {
+    return (
+      <>
+        <LoginScreen
+          members={members}
+          onLogin={(user) => {
+            setCurrentUser(user);
+            setActiveTab('meu_painel');
+          }}
+          onRegisterMember={handleAddMember}
+          onOpenRegistration={() => setIsPublicRegistrationOpen(true)}
+        />
+
+        <PublicMemberRegistrationModal
+          isOpen={isPublicRegistrationOpen}
+          onClose={handleClosePublicRegistration}
+          onAddMember={handleAddMember}
+          onSuccessLogin={(m) => {
+            setCurrentUser(m);
+            setActiveTab('meu_painel');
+          }}
+        />
+      </>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-slate-950 text-slate-100 flex font-sans">

@@ -80,28 +80,14 @@ export const LiveSessionPanel: React.FC<LiveSessionPanelProps> = ({
     degree: 'Mestre' as any,
   });
 
-  if (!activeSession) {
-    return (
-      <div className="bg-slate-900 border border-slate-800 rounded-2xl p-10 text-center space-y-4">
-        <QrCode className="w-12 h-12 text-slate-600 mx-auto" />
-        <h3 className="font-serif-masonic text-xl font-bold text-slate-200">
-          Nenhuma Sessão Ativa no Momento
-        </h3>
-        <p className="text-xs text-slate-400 max-w-md mx-auto">
-          Para realizar a chamada automatizada via QR Code ou registro manual pelo Chanceler/Secretário, ative uma sessão no menu "Sessões da Loja".
-        </p>
-      </div>
-    );
-  }
-
   const stats = useMemo(
-    () => calculateSessionStats(activeSession, members, attendances, visitors),
+    () => (activeSession ? calculateSessionStats(activeSession, members, attendances, visitors) : null),
     [activeSession, members, attendances, visitors]
   );
 
   const sessionAttendances = useMemo(
-    () => attendances.filter((a) => a.sessionId === activeSession.id),
-    [attendances, activeSession.id]
+    () => (activeSession ? attendances.filter((a) => a.sessionId === activeSession.id) : []),
+    [attendances, activeSession?.id]
   );
 
   const presentMemberIds = useMemo(
@@ -110,8 +96,8 @@ export const LiveSessionPanel: React.FC<LiveSessionPanelProps> = ({
   );
 
   const currentSessionVisitors = useMemo(
-    () => visitors.filter((v) => v.sessionId === activeSession.id),
-    [visitors, activeSession.id]
+    () => (activeSession ? visitors.filter((v) => v.sessionId === activeSession.id) : []),
+    [visitors, activeSession?.id]
   );
 
   const formatCheckInTime = (isoString?: string) => {
@@ -138,14 +124,39 @@ export const LiveSessionPanel: React.FC<LiveSessionPanelProps> = ({
 
   // Degree Lock check for current logged-in user
   const userCanAttend = useMemo(
-    () => canDegreeAttend(currentUser.degreeLevel, activeSession.degreeLevel),
-    [currentUser.degreeLevel, activeSession.degreeLevel]
+    () => (activeSession ? canDegreeAttend(currentUser.degreeLevel, activeSession.degreeLevel) : false),
+    [currentUser.degreeLevel, activeSession?.degreeLevel]
   );
 
   const isUserCheckedIn = useMemo(
     () => presentMemberIds.has(currentUser.id),
     [presentMemberIds, currentUser.id]
   );
+
+  const filteredMembers = useMemo(() => {
+    const term = searchTerm.trim().toLowerCase();
+    if (!term) return members;
+    return members.filter((m) => {
+      return (
+        m.fullName.toLowerCase().includes(term) ||
+        m.cim.includes(term)
+      );
+    });
+  }, [members, searchTerm]);
+
+  if (!activeSession || !stats) {
+    return (
+      <div className="bg-slate-900 border border-slate-800 rounded-2xl p-10 text-center space-y-4">
+        <QrCode className="w-12 h-12 text-slate-600 mx-auto" />
+        <h3 className="font-serif-masonic text-xl font-bold text-slate-200">
+          Nenhuma Sessão Ativa no Momento
+        </h3>
+        <p className="text-xs text-slate-400 max-w-md mx-auto">
+          Para realizar a chamada automatizada via QR Code ou registro manual pelo Chanceler/Secretário, ative uma sessão no menu "Sessões da Loja".
+        </p>
+      </div>
+    );
+  }
 
   const handleSelfQrCheckIn = () => {
     setScannerFeedback(null);
@@ -191,17 +202,6 @@ export const LiveSessionPanel: React.FC<LiveSessionPanelProps> = ({
       degree: 'Mestre',
     });
   };
-
-  const filteredMembers = useMemo(() => {
-    const term = searchTerm.trim().toLowerCase();
-    if (!term) return members;
-    return members.filter((m) => {
-      return (
-        m.fullName.toLowerCase().includes(term) ||
-        m.cim.includes(term)
-      );
-    });
-  }, [members, searchTerm]);
 
   return (
     <div className="space-y-6">
