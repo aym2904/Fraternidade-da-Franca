@@ -8,11 +8,11 @@ import {
   BarChart3,
   Building2,
   Calendar,
+  CalendarDays,
   Sparkles,
   CheckCircle2,
   Users,
   Radio,
-  FileCheck2,
   FileText,
   ShieldAlert,
   QrCode,
@@ -45,7 +45,7 @@ interface TopHeaderProps {
   onOpenEditProfile?: () => void;
 }
 
-export const TopHeader: React.FC<TopHeaderProps> = ({
+export const TopHeader: React.FC<TopHeaderProps> = React.memo(({
   activeTab,
   setActiveTab,
   currentUser,
@@ -93,12 +93,12 @@ export const TopHeader: React.FC<TopHeaderProps> = ({
         return { label: isAdmin ? 'Sessões da Loja' : `Sessões do ${currentUser.degree}`, icon: Calendar, category: 'Calendário Litúrgico' };
       case 'visitantes':
         return { label: 'Registro de Visitantes', icon: UserCheck, category: 'Chancelaria' };
-      case 'justificativas':
-        return { label: isAdmin ? 'Central de Abonos e Justificativas' : 'Minhas Justificativas de Ausência', icon: FileCheck2, category: 'Frequência' };
       case 'balaustre':
         return { label: 'Balaústre dos Trabalhos (Ata)', icon: FileText, category: 'Secretaria' };
       case 'relatorios':
         return { label: isAdmin ? 'Inteligência, Estatísticas & Alertas' : 'Minha Frequência Litúrgica', icon: ShieldAlert, category: 'Análise' };
+      case 'calendario':
+        return { label: 'Calendário Maçônico', icon: CalendarDays, category: 'Agenda & Presenças' };
       default:
         return { label: 'Painel Geral', icon: BarChart3, category: 'Sistema' };
     }
@@ -140,11 +140,6 @@ export const TopHeader: React.FC<TopHeaderProps> = ({
                 </span>
                 <h2 className="text-xs sm:text-sm md:text-base font-bold text-slate-100 truncate flex items-center space-x-2">
                   <span>{currentTabInfo.label}</span>
-                  {activeTab === 'membros' && allMembers.length > 0 && (
-                    <span className="text-[10px] font-mono font-semibold text-amber-300 bg-amber-500/15 border border-amber-500/30 px-2 py-0.5 rounded-full shadow-sm">
-                      {allMembers.length}
-                    </span>
-                  )}
                 </h2>
               </div>
               <p className="text-[10px] text-slate-400 truncate hidden lg:block">
@@ -353,4 +348,4 @@ export const TopHeader: React.FC<TopHeaderProps> = ({
       </div>
     </header>
   );
-};
+});

@@ -4,7 +4,6 @@ import {
   Calendar,
   QrCode,
   Camera,
-  FileCheck2,
   FileText,
   BarChart3,
   UserCheck,
@@ -28,7 +27,6 @@ interface NavbarProps {
   allMembers: Member[];
   setCurrentUser: (member: Member) => void;
   onLogout: () => void;
-  pendingJustificationsCount: number;
   inactivityAlertsCount: number;
   hasActiveSession: boolean;
   supabaseStatus?: SupabaseConnectionStatus | null;
@@ -42,7 +40,6 @@ export const Navbar: React.FC<NavbarProps> = ({
   allMembers,
   setCurrentUser,
   onLogout,
-  pendingJustificationsCount,
   inactivityAlertsCount,
   hasActiveSession,
   supabaseStatus,
@@ -357,24 +354,6 @@ export const Navbar: React.FC<NavbarProps> = ({
               <span>Visitantes</span>
             </button>
           )}
-
-          {/* Justifications */}
-          <button
-            onClick={() => setActiveTab('justificativas')}
-            className={`flex items-center space-x-1.5 px-3 py-2 rounded-lg whitespace-nowrap transition relative ${
-              activeTab === 'justificativas'
-                ? 'bg-amber-500/15 text-amber-300 border border-amber-500/40'
-                : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/50'
-            }`}
-          >
-            <FileCheck2 className="w-4 h-4" />
-            <span>{isAdmin ? 'Central de Abonos' : 'Minhas Justificativas'}</span>
-            {isAdmin && pendingJustificationsCount > 0 && (
-              <span className="bg-amber-500 text-slate-950 font-bold text-[10px] px-1.5 py-0.2 rounded-full">
-                {pendingJustificationsCount}
-              </span>
-            )}
-          </button>
 
           {/* Balaústre (Minute) */}
           <button

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo, useCallback } from 'react';
 import {
   Calendar,
   Plus,
@@ -16,7 +16,7 @@ import {
   Edit3,
   CheckCircle2,
 } from 'lucide-react';
-import { Session, SessionType, SessionSubtype, MasonicDegree, Member, LodgeOfficerRole, Balaustre, AttendanceRecord, VisitorRecord, Justification } from '../types/masonic';
+import { Session, SessionType, SessionSubtype, MasonicDegree, Member, LodgeOfficerRole, Balaustre, AttendanceRecord, VisitorRecord } from '../types/masonic';
 import { isLodgeAdmin, isSystemAdmin, canAccessSessionDegree } from '../utils/authUtils';
 import { calculateSessionStats, sortSessionsByCreationDesc } from '../utils/masonicUtils';
 
@@ -27,7 +27,6 @@ interface SessionManagementProps {
   balaustres?: Balaustre[];
   attendances?: AttendanceRecord[];
   visitors?: VisitorRecord[];
-  justifications?: Justification[];
   onAddSession: (session: Session) => void;
   onUpdateSession: (session: Session) => void;
   onToggleActiveSession: (sessionId: string) => void;
@@ -80,7 +79,6 @@ export const SessionManagement: React.FC<SessionManagementProps> = ({
   balaustres = [],
   attendances = [],
   visitors = [],
-  justifications = [],
   onAddSession,
   onUpdateSession,
   onToggleActiveSession,
@@ -95,9 +93,20 @@ export const SessionManagement: React.FC<SessionManagementProps> = ({
   const [isClearAllModalOpen, setIsClearAllModalOpen] = useState(false);
 
   // Filter sessions according to user's degree and administrative permissions, ordered by creation (newest on top)
-  const visibleSessions = sortSessionsByCreationDesc(
-    sessions.filter((s) => canAccessSessionDegree(currentUser, s.degreeLevel))
-  );
+  const visibleSessions = useMemo(() => {
+    return sortSessionsByCreationDesc(
+      sessions.filter((s) => canAccessSessionDegree(currentUser, s.degreeLevel))
+    );
+  }, [sessions, currentUser]);
+
+  // Memoize session stats map to avoid heavy recalculations during renders
+  const sessionStatsMap = useMemo(() => {
+    const map = new Map<string, ReturnType<typeof calculateSessionStats>>();
+    for (const s of visibleSessions) {
+      map.set(s.id, calculateSessionStats(s, members, attendances, visitors));
+    }
+    return map;
+  }, [visibleSessions, members, attendances, visitors]);
 
   const [formData, setFormData] = useState<Partial<Session>>({
     title: '',
@@ -330,7 +339,7 @@ export const SessionManagement: React.FC<SessionManagementProps> = ({
           visibleSessions.map((s) => {
             const sessionBalaustre = balaustres.find((b) => b.sessionId === s.id);
             const isBalaustreApproved = sessionBalaustre?.status === 'Aprovado';
-            const sessionStats = calculateSessionStats(s, members, attendances, visitors, justifications);
+            const sessionStats = sessionStatsMap.get(s.id) || calculateSessionStats(s, members, attendances, visitors);
 
             return (
               <div
@@ -772,7 +781,6 @@ export const SessionManagement: React.FC<SessionManagementProps> = ({
                 <ul className="text-[11px] space-y-1 list-disc list-inside text-rose-200/80 pl-1 font-medium">
                   <li><strong>Toda a frequência</strong> e check-ins dos Obreiros do Quadro nesta sessão;</li>
                   <li><strong>Todos os registros de Visitantes</strong> anotados para esta data;</li>
-                  <li><strong>Todas as justificativas de falta</strong> vinculadas a esta reunião;</li>
                   <li><strong>O Balaústre / Ata</strong> lavrado para esta sessão.</li>
                 </ul>
               </div>
@@ -844,7 +852,7 @@ export const SessionManagement: React.FC<SessionManagementProps> = ({
                   <span>Limpeza Completa do Módulo de Reuniões:</span>
                 </div>
                 <p className="text-[11px] leading-relaxed text-rose-200/90">
-                  Esta operação apagará <strong>todas as sessões cadastradas ({sessions.length})</strong> e removerá integralmente todos os registros de presença, visitantes, justificativas e atas do sistema e do Supabase.
+                  Esta operação apagará <strong>todas as sessões cadastradas ({sessions.length})</strong> e removerá integralmente todos os registros de presença, visitantes e atas do sistema e do Supabase.
                 </p>
               </div>
 

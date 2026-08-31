@@ -18,7 +18,7 @@ import {
   SupabaseConnectionStatus,
   SUPABASE_SETUP_SQL
 } from '../lib/supabaseService';
-import { Member, Session, AttendanceRecord, VisitorRecord, Justification, Balaustre } from '../types/masonic';
+import { Member, Session, AttendanceRecord, VisitorRecord, Balaustre } from '../types/masonic';
 
 interface SupabaseStatusModalProps {
   isOpen: boolean;
@@ -30,7 +30,6 @@ interface SupabaseStatusModalProps {
     sessions: Session[];
     attendances: AttendanceRecord[];
     visitors: VisitorRecord[];
-    justifications: Justification[];
     balaustres: Balaustre[];
   };
   onDataSynced?: () => void;

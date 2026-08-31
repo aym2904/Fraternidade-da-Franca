@@ -80,7 +80,7 @@ export const BalaustreIntegration: React.FC<BalaustreIntegrationProps> = ({
     : false;
 
   const stats = selectedSession
-    ? calculateSessionStats(selectedSession, members, attendances, visitors, [])
+    ? calculateSessionStats(selectedSession, members, attendances, visitors)
     : null;
 
   // Auto-generate formal minute text

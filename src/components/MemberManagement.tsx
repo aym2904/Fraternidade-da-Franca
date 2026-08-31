@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo, useCallback } from 'react';
 import {
   Users,
   Search,
@@ -21,7 +21,7 @@ import {
   LogIn,
   KeyRound
 } from 'lucide-react';
-import { Member, MasonicDegree, MemberStatus, LodgeOfficerRole, Session, AttendanceRecord, Justification } from '../types/masonic';
+import { Member, MasonicDegree, MemberStatus, LodgeOfficerRole, Session, AttendanceRecord } from '../types/masonic';
 import { calculateMemberAttendance } from '../utils/masonicUtils';
 import { generateAttendanceCertificatePDF } from '../utils/pdfGenerator';
 import { DEFAULT_NEUTRAL_AVATAR, getMemberPhotoUrl } from '../utils/avatarUtils';
@@ -39,7 +39,6 @@ interface MemberManagementProps {
   onImpersonate?: (member: Member) => void;
   sessions: Session[];
   attendances: AttendanceRecord[];
-  justifications: Justification[];
   currentUser?: Member | null;
 }
 
@@ -51,7 +50,6 @@ export const MemberManagement: React.FC<MemberManagementProps> = ({
   onImpersonate,
   sessions = [],
   attendances = [],
-  justifications = [],
   currentUser,
 }) => {
   const isSysAdmin = isSystemAdmin(currentUser);
@@ -80,15 +78,27 @@ export const MemberManagement: React.FC<MemberManagementProps> = ({
     photoUrl: DEFAULT_NEUTRAL_AVATAR,
   });
 
-  const filteredMembers = members.filter((m) => {
-    const matchesSearch =
-      m.fullName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      m.cim.includes(searchTerm) ||
-      m.cpf.includes(searchTerm);
-    const matchesDegree = degreeFilter === 'ALL' || m.degree === degreeFilter;
-    const matchesStatus = statusFilter === 'ALL' || m.status === statusFilter;
-    return matchesSearch && matchesDegree && matchesStatus;
-  });
+  const filteredMembers = useMemo(() => {
+    const query = searchTerm.trim().toLowerCase();
+    return members.filter((m) => {
+      const matchesSearch =
+        !query ||
+        m.fullName.toLowerCase().includes(query) ||
+        m.cim.includes(query) ||
+        (m.cpf && m.cpf.includes(query));
+      const matchesDegree = degreeFilter === 'ALL' || m.degree === degreeFilter;
+      const matchesStatus = statusFilter === 'ALL' || m.status === statusFilter;
+      return matchesSearch && matchesDegree && matchesStatus;
+    });
+  }, [members, searchTerm, degreeFilter, statusFilter]);
+
+  const memberAttendanceMap = useMemo(() => {
+    const map = new Map<string, ReturnType<typeof calculateMemberAttendance>>();
+    for (const m of members) {
+      map.set(m.id, calculateMemberAttendance(m, sessions, attendances));
+    }
+    return map;
+  }, [members, sessions, attendances]);
 
   const handleOpenAddModal = () => {
     setEditingMember(null);
@@ -315,7 +325,7 @@ export const MemberManagement: React.FC<MemberManagementProps> = ({
       {/* Member Cards Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
         {filteredMembers.map((m) => {
-          const attStats = calculateMemberAttendance(m, sessions, attendances, justifications);
+          const attStats = memberAttendanceMap.get(m.id) || calculateMemberAttendance(m, sessions, attendances);
 
           return (
             <div
@@ -492,8 +502,24 @@ export const MemberManagement: React.FC<MemberManagementProps> = ({
                     <span>•</span>
                     <span>CPF: <strong className="text-slate-200">{selectedMember.cpf}</strong></span>
                   </p>
+                  {(selectedMember.email || selectedMember.phone) && (
+                    <div className="text-xs text-slate-400 flex flex-wrap items-center justify-center sm:justify-start gap-x-3 gap-y-1 mt-1.5 min-w-0">
+                      {selectedMember.phone && (
+                        <span className="flex items-center space-x-1 shrink-0">
+                          <span className="text-emerald-400 font-semibold">Tel:</span>
+                          <strong className="text-slate-200 font-mono">{selectedMember.phone}</strong>
+                        </span>
+                      )}
+                      {selectedMember.email && (
+                        <span className="flex items-center space-x-1 min-w-0 max-w-full text-slate-300">
+                          <span className="text-amber-400/90 font-semibold shrink-0">E-mail:</span>
+                          <strong className="text-slate-200 break-all">{selectedMember.email}</strong>
+                        </span>
+                      )}
+                    </div>
+                  )}
                   {selectedMember.joinedDate && (
-                    <p className="text-xs text-slate-400 mt-0.5 text-center sm:text-left">
+                    <p className="text-xs text-slate-400 mt-1 text-center sm:text-left">
                       Maçom iniciado em: <strong className="text-amber-300">{formatDisplayDate(selectedMember.joinedDate)}</strong>
                     </p>
                   )}
@@ -536,12 +562,12 @@ export const MemberManagement: React.FC<MemberManagementProps> = ({
 
             {/* Attendance & Frequency Summary */}
             {(() => {
-              const attStats = calculateMemberAttendance(selectedMember, sessions, attendances, justifications);
+              const attStats = calculateMemberAttendance(selectedMember, sessions, attendances);
               const memberAttendances = attendances.filter((a) => a.memberId === selectedMember.id);
 
               return (
                 <div className="py-5 space-y-5">
-                  <div className="bg-slate-950 border border-slate-800 rounded-xl p-4 grid grid-cols-2 sm:grid-cols-4 gap-4 text-center">
+                  <div className="bg-slate-950 border border-slate-800 rounded-xl p-4 grid grid-cols-3 gap-4 text-center">
                     <div>
                       <span className="text-[10px] text-slate-400 uppercase font-semibold">Sessões Elegíveis</span>
                       <p className="text-xl font-bold text-slate-100">{attStats.totalEligible}</p>
@@ -549,10 +575,6 @@ export const MemberManagement: React.FC<MemberManagementProps> = ({
                     <div>
                       <span className="text-[10px] text-slate-400 uppercase font-semibold">Presenças</span>
                       <p className="text-xl font-bold text-emerald-400">{attStats.totalAttended}</p>
-                    </div>
-                    <div>
-                      <span className="text-[10px] text-slate-400 uppercase font-semibold">Justificadas</span>
-                      <p className="text-xl font-bold text-amber-400">{attStats.totalJustified}</p>
                     </div>
                     <div>
                       <span className="text-[10px] text-slate-400 uppercase font-semibold">Assiduidade %</span>
@@ -569,9 +591,6 @@ export const MemberManagement: React.FC<MemberManagementProps> = ({
                     <div className="max-h-48 overflow-y-auto space-y-2 pr-1">
                       {sessions.map((s) => {
                         const attended = memberAttendances.find((a) => a.sessionId === s.id);
-                        const justified = justifications.find(
-                          (j) => j.sessionId === s.id && j.memberId === selectedMember.id && j.status === 'Aprovado'
-                        );
 
                         return (
                           <div
@@ -589,10 +608,6 @@ export const MemberManagement: React.FC<MemberManagementProps> = ({
                               {attended ? (
                                 <span className="bg-emerald-950 text-emerald-400 border border-emerald-800 px-2 py-0.5 rounded text-[10px] font-mono">
                                   PRESENTE ({attended.method})
-                                </span>
-                              ) : justified ? (
-                                <span className="bg-amber-950 text-amber-400 border border-amber-800 px-2 py-0.5 rounded text-[10px] font-mono">
-                                  JUSTIFICADO
                                 </span>
                               ) : (
                                 <span className="bg-rose-950 text-rose-400 border border-rose-800 px-2 py-0.5 rounded text-[10px] font-mono">
@@ -775,7 +790,7 @@ export const MemberManagement: React.FC<MemberManagementProps> = ({
                   </div>
                 )}
 
-                <div className="grid grid-cols-2 gap-3">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div>
                     <label className="block text-slate-300 font-medium mb-1">E-mail</label>
                     <input
@@ -783,7 +798,7 @@ export const MemberManagement: React.FC<MemberManagementProps> = ({
                       value={formData.email || ''}
                       onChange={(e) => setFormData({ ...formData, email: e.target.value.toLowerCase().trim() })}
                       placeholder="obreiro@loja.org.br"
-                      className="w-full bg-slate-950 border border-slate-800 rounded-lg p-2.5 text-slate-200 focus:outline-none focus:border-amber-500 lowercase"
+                      className="w-full max-w-full bg-slate-950 border border-slate-800 rounded-lg p-2.5 text-slate-200 focus:outline-none focus:border-amber-500 lowercase text-xs sm:text-sm truncate"
                     />
                   </div>
 
@@ -795,7 +810,7 @@ export const MemberManagement: React.FC<MemberManagementProps> = ({
                       value={formData.phone || ''}
                       onChange={(e) => setFormData({ ...formData, phone: formatPhone(e.target.value) })}
                       placeholder="(16) 99999-9999"
-                      className="w-full bg-slate-950 border border-slate-800 rounded-lg p-2.5 text-slate-200 focus:outline-none focus:border-amber-500 font-mono"
+                      className="w-full max-w-full bg-slate-950 border border-slate-800 rounded-lg p-2.5 text-slate-200 focus:outline-none focus:border-amber-500 font-mono text-xs sm:text-sm"
                     />
                   </div>
                 </div>
@@ -872,11 +887,7 @@ export const MemberManagement: React.FC<MemberManagementProps> = ({
                             </span>
                             <span className="flex items-center space-x-1">
                               <CheckCircle className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
-                              <span>Chamada Manual e Registro de Visitantes</span>
-                            </span>
-                            <span className="flex items-center space-x-1">
-                              <CheckCircle className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
-                              <span>Abonos e Aprovação de Justificativas</span>
+                              <span>Chamada Manual e Frequência dos Obreiros</span>
                             </span>
                           </div>
                         </div>
@@ -1100,7 +1111,7 @@ export const MemberManagement: React.FC<MemberManagementProps> = ({
                 </div>
               </div>
               <p className="text-rose-300/90 text-[11px] leading-relaxed bg-rose-950/30 p-2.5 rounded-lg border border-rose-900/50">
-                ⚠️ Esta ação removerá o obreiro de forma definitiva do banco de dados na nuvem, juntamente com seus registros de chamadas e justificativas vinculadas.
+                ⚠️ Esta ação removerá o obreiro de forma definitiva do banco de dados na nuvem, juntamente com seus registros de chamadas vinculadas.
               </p>
             </div>
 

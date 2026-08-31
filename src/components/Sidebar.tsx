@@ -3,9 +3,9 @@ import {
   Menu,
   Users,
   Calendar,
+  CalendarDays,
   QrCode,
   Camera,
-  FileCheck2,
   FileText,
   BarChart3,
   UserCheck,
@@ -17,7 +17,8 @@ import {
   ChevronRight,
   LogOut,
   User,
-  ExternalLink
+  ExternalLink,
+  Sparkles
 } from 'lucide-react';
 import { Member } from '../types/masonic';
 import { isLodgeAdmin, isSystemAdmin, getRoleBadgeLabel } from '../utils/authUtils';
@@ -30,7 +31,6 @@ interface SidebarProps {
   currentUser: Member;
   allMembers: Member[];
   onLogout: () => void;
-  pendingJustificationsCount: number;
   inactivityAlertsCount: number;
   hasActiveSession: boolean;
   isMobileOpen: boolean;
@@ -41,13 +41,12 @@ interface SidebarProps {
   onExitImpersonation?: () => void;
 }
 
-export const Sidebar: React.FC<SidebarProps> = ({
+export const Sidebar: React.FC<SidebarProps> = React.memo(({
   activeTab,
   setActiveTab,
   currentUser,
   allMembers = [],
   onLogout,
-  pendingJustificationsCount,
   inactivityAlertsCount,
   hasActiveSession,
   isMobileOpen,
@@ -144,9 +143,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
       shortLabel: 'Obreiros',
       icon: Users,
       visible: isAdmin,
-      badge: totalMembersCount > 0 ? String(totalMembersCount) : null,
-      badgeColor: 'bg-slate-800/90 text-amber-300 border border-amber-500/30 font-mono font-bold tracking-tight',
-      isCounter: true,
+      badge: null,
+      badgeColor: '',
     },
     {
       id: 'visitantes',
@@ -176,15 +174,6 @@ export const Sidebar: React.FC<SidebarProps> = ({
       badgeColor: '',
     },
     {
-      id: 'justificativas',
-      label: isAdmin ? 'Central de Abonos' : 'Minhas Justificativas',
-      shortLabel: 'Abonos',
-      icon: FileCheck2,
-      visible: true,
-      badge: isAdmin && pendingJustificationsCount > 0 ? String(pendingJustificationsCount) : null,
-      badgeColor: 'bg-amber-500 text-slate-950 font-bold',
-    },
-    {
       id: 'relatorios',
       label: isAdmin ? 'Inteligência & Alertas' : 'Minha Frequência',
       shortLabel: 'Alertas',
@@ -192,6 +181,15 @@ export const Sidebar: React.FC<SidebarProps> = ({
       visible: true,
       badge: isAdmin && inactivityAlertsCount > 0 ? String(inactivityAlertsCount) : null,
       badgeColor: 'bg-rose-500 text-white font-bold',
+    },
+    {
+      id: 'calendario',
+      label: 'Calendário Maçônico',
+      shortLabel: 'Calendário',
+      icon: CalendarDays,
+      visible: true,
+      badge: null,
+      badgeColor: '',
     },
   ];
 
@@ -323,7 +321,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 )}
 
                 {/* Dot for collapsed mode when an urgent alert/badge exists */}
-                {isCollapsed && !isMobileOpen && item.badge && !item.isCounter && (
+                {isCollapsed && !isMobileOpen && item.badge && (
                   <span className="absolute top-2 right-2 w-2 h-2 rounded-full bg-amber-400 animate-pulse" />
                 )}
               </button>
@@ -403,4 +401,4 @@ export const Sidebar: React.FC<SidebarProps> = ({
       </aside>
     </>
   );
-};
+});

@@ -1,4 +1,4 @@
-import { Member, Session, AttendanceRecord, VisitorRecord, Justification, Balaustre } from '../types/masonic';
+import { Member, Session, AttendanceRecord, VisitorRecord, Balaustre } from '../types/masonic';
 
 export const INITIAL_MEMBERS: Member[] = [
   {
@@ -13,8 +13,24 @@ export const INITIAL_MEMBERS: Member[] = [
     "status": "Regular",
     "currentOfficerRole": null,
     "joinedDate": "2025-11-11",
+    "birthDate": "1995-08-27", // Aniversário hoje para testes em tempo real
+    "initiationDate": "2025-11-11",
     "phone": "16992803016",
-    "password": "19324510"
+    "password": "19324510",
+    "wife": {
+      "name": "Mariana Salvino",
+      "birthDate": "1997-08-28",
+      "marriageDate": "2020-08-27", // Bodas de Açúcar (6 anos) hoje
+      "phone": "(16) 99280-3016"
+    },
+    "children": [
+      {
+        "id": "c-1",
+        "name": "Enzo Gabriel Salvino",
+        "birthDate": "2022-08-29",
+        "motherName": "Mariana Salvino"
+      }
+    ]
   },
   {
     "id": "mem-1787332723376",
@@ -28,8 +44,18 @@ export const INITIAL_MEMBERS: Member[] = [
     "status": "Regular",
     "currentOfficerRole": "Mestre de Harmonia",
     "joinedDate": "2023-09-12",
+    "birthDate": "1972-04-15",
+    "initiationDate": "2023-09-12",
+    "elevationDate": "2024-05-14",
+    "exaltationDate": "2025-03-18",
     "phone": "(16) 99182-1858",
-    "password": "clau6860"
+    "password": "clau6860",
+    "wife": {
+      "name": "Sandra Limirio",
+      "birthDate": "1975-06-20",
+      "marriageDate": "1998-10-17",
+      "phone": "(16) 99182-1858"
+    }
   },
   {
     "id": "mem-1787333066142",
@@ -43,8 +69,15 @@ export const INITIAL_MEMBERS: Member[] = [
     "status": "Regular",
     "currentOfficerRole": null,
     "joinedDate": "2026-05-19",
+    "birthDate": "1981-03-18",
+    "initiationDate": "2026-05-19",
     "phone": "(16) 99401-5983",
-    "password": "1803"
+    "password": "1803",
+    "wife": {
+      "name": "Patrícia Almeida",
+      "birthDate": "1984-11-05",
+      "marriageDate": "2010-09-15"
+    }
   },
   {
     "id": "mem-1787333248202",
@@ -58,8 +91,27 @@ export const INITIAL_MEMBERS: Member[] = [
     "status": "Regular",
     "currentOfficerRole": null,
     "joinedDate": "1992-08-29",
+    "birthDate": "1960-08-24",
+    "initiationDate": "1992-08-29",
+    "elevationDate": "1993-06-15",
+    "exaltationDate": "1994-04-20",
+    "installationDate": "2000-06-24",
     "phone": "(16) 99972-2022",
-    "password": "ime056607"
+    "password": "ime056607",
+    "wife": {
+      "name": "Maria Cristina Cheade",
+      "birthDate": "1964-08-27",
+      "marriageDate": "1988-07-09",
+      "phone": "(16) 99972-2022"
+    },
+    "children": [
+      {
+        "id": "c-cheade-1",
+        "name": "Lucas Cheade",
+        "birthDate": "1993-01-14",
+        "motherName": "Maria Cristina Cheade"
+      }
+    ]
   },
   {
     "id": "mem-1787334042106",
@@ -73,8 +125,17 @@ export const INITIAL_MEMBERS: Member[] = [
     "status": "Regular",
     "currentOfficerRole": null,
     "joinedDate": "2012-10-09",
+    "birthDate": "1978-12-03",
+    "initiationDate": "2012-10-09",
+    "elevationDate": "2013-09-17",
+    "exaltationDate": "2014-06-10",
     "phone": "(16) 99125-8157",
-    "password": "278712"
+    "password": "278712",
+    "wife": {
+      "name": "Juliana Nahuz",
+      "birthDate": "1982-05-18",
+      "marriageDate": "2008-08-26"
+    }
   },
   {
     "id": "mem-1787334149610",
@@ -88,8 +149,17 @@ export const INITIAL_MEMBERS: Member[] = [
     "status": "Regular",
     "currentOfficerRole": "1º Diácono",
     "joinedDate": "2022-03-08",
+    "birthDate": "1980-09-14",
+    "initiationDate": "2022-03-08",
+    "elevationDate": "2023-04-11",
+    "exaltationDate": "2024-02-27",
     "phone": "(16) 98113-4220",
-    "password": "Gmrf60@@"
+    "password": "Gmrf60@@",
+    "wife": {
+      "name": "Fernanda Rinaldi",
+      "birthDate": "1983-02-10",
+      "marriageDate": "2007-11-24"
+    }
   },
   {
     "id": "mem-1787334476560",
@@ -103,6 +173,10 @@ export const INITIAL_MEMBERS: Member[] = [
     "status": "Regular",
     "currentOfficerRole": "Mestre de Cerimônias",
     "joinedDate": "2018-12-04",
+    "birthDate": "1974-07-22",
+    "initiationDate": "2018-12-04",
+    "elevationDate": "2019-10-15",
+    "exaltationDate": "2020-08-18",
     "phone": "(16) 99122-0685",
     "password": "021627"
   },
@@ -118,6 +192,8 @@ export const INITIAL_MEMBERS: Member[] = [
     "status": "Regular",
     "currentOfficerRole": null,
     "joinedDate": "2025-11-11",
+    "birthDate": "1986-06-14",
+    "initiationDate": "2025-11-11",
     "phone": "(16) 99174-3971",
     "password": "Leo521258@"
   },
@@ -133,8 +209,27 @@ export const INITIAL_MEMBERS: Member[] = [
     "status": "Regular",
     "currentOfficerRole": "Venerável Mestre",
     "joinedDate": "2012-09-04",
+    "birthDate": "1975-01-29",
+    "initiationDate": "2012-09-04",
+    "elevationDate": "2013-08-20",
+    "exaltationDate": "2014-05-13",
+    "installationDate": "2023-06-24",
     "phone": "(16) 99971-0221",
-    "password": "99710221"
+    "password": "99710221",
+    "wife": {
+      "name": "Ana Paula Arantes",
+      "birthDate": "1978-08-30",
+      "marriageDate": "2002-09-21",
+      "phone": "(16) 99971-0221"
+    },
+    "children": [
+      {
+        "id": "c-fred-1",
+        "name": "Gabriel Arantes",
+        "birthDate": "2006-03-12",
+        "motherName": "Ana Paula Arantes"
+      }
+    ]
   },
   {
     "id": "mem-1787342261422",
@@ -148,6 +243,9 @@ export const INITIAL_MEMBERS: Member[] = [
     "status": "Regular",
     "currentOfficerRole": null,
     "joinedDate": "2025-02-18",
+    "birthDate": "1989-10-11",
+    "initiationDate": "2025-02-18",
+    "elevationDate": "2026-03-10",
     "phone": "(16) 99153-0310",
     "password": "520612"
   },
@@ -163,8 +261,18 @@ export const INITIAL_MEMBERS: Member[] = [
     "status": "Regular",
     "currentOfficerRole": "Orador",
     "joinedDate": "2011-03-31",
+    "birthDate": "1958-11-20",
+    "initiationDate": "2011-03-31",
+    "elevationDate": "2012-02-14",
+    "exaltationDate": "2012-11-20",
+    "installationDate": "2017-06-24",
     "phone": "(16) 98112-1587",
-    "password": "266391"
+    "password": "266391",
+    "wife": {
+      "name": "Maria Helena Mendonça",
+      "birthDate": "1962-04-08",
+      "marriageDate": "1984-12-15"
+    }
   },
   {
     "id": "mem-1787345400407",
@@ -178,8 +286,26 @@ export const INITIAL_MEMBERS: Member[] = [
     "status": "Regular",
     "currentOfficerRole": "Chanceler",
     "joinedDate": "2014-09-02",
+    "birthDate": "1970-08-25",
+    "initiationDate": "2014-09-02",
+    "elevationDate": "2015-08-11",
+    "exaltationDate": "2016-06-21",
     "phone": "(16) 99174-6000",
-    "password": "50754315Jid#"
+    "password": "50754315Jid#",
+    "wife": {
+      "name": "Roberta Lemos",
+      "birthDate": "1973-10-19",
+      "marriageDate": "1996-05-18",
+      "phone": "(16) 99174-6000"
+    },
+    "children": [
+      {
+        "id": "c-lemos-1",
+        "name": "Manoela Lemos",
+        "birthDate": "2003-08-27",
+        "motherName": "Roberta Lemos"
+      }
+    ]
   },
   {
     "id": "mem-1787348990344",
@@ -193,6 +319,11 @@ export const INITIAL_MEMBERS: Member[] = [
     "status": "Regular",
     "currentOfficerRole": null,
     "joinedDate": "1992-08-25",
+    "birthDate": "1963-09-08",
+    "initiationDate": "1992-08-25",
+    "elevationDate": "1993-05-18",
+    "exaltationDate": "1994-06-14",
+    "installationDate": "1998-06-24",
     "phone": "(16) 99975-3445",
     "password": "mcmamede"
   },
@@ -208,6 +339,10 @@ export const INITIAL_MEMBERS: Member[] = [
     "status": "Regular",
     "currentOfficerRole": null,
     "joinedDate": "2023-03-22",
+    "birthDate": "1976-12-18",
+    "initiationDate": "2023-03-22",
+    "elevationDate": "2024-02-20",
+    "exaltationDate": "2024-11-26",
     "phone": "(16) 99967-5550",
     "password": "50LT1451"
   }
@@ -520,23 +655,6 @@ export const INITIAL_VISITORS: VisitorRecord[] = [
     "degree": "Mestre",
     "degreeLevel": 3,
     "timestamp": "2026-08-24T12:32:16.585Z"
-  }
-];
-
-export const INITIAL_JUSTIFICATIONS: Justification[] = [
-  {
-    "id": "j-1787581980988",
-    "memberId": "mem-1787334476560",
-    "sessionId": "s-1787579634281",
-    "reason": "Viagem profissional a serviço",
-    "category": "Viagem a Trabalho",
-    "fileUrl": "",
-    "fileName": "atestado_de_presença_519261_2026-08-24.pdf",
-    "fileType": "application/pdf",
-    "status": "Aprovado",
-    "submittedAt": "2026-08-24T14:33:00.988Z",
-    "reviewedAt": "2026-08-24T14:33:15.500Z",
-    "reviewerNotes": "Falta abonada regimentalmente pelo Secretário."
   }
 ];
 

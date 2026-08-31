@@ -3,7 +3,6 @@ import {
   Session,
   AttendanceRecord,
   VisitorRecord,
-  Justification,
   InactivityAlert,
   MasonicDegreeLevel
 } from '../types/masonic';
@@ -12,7 +11,6 @@ export interface SessionStats {
   totalEligible: number;
   totalPresentMembers: number;
   totalVisitors: number;
-  totalJustified: number;
   totalAbsent: number;
   percentagePresent: number;
 }
@@ -20,16 +18,14 @@ export interface SessionStats {
 export interface MemberAttendanceStats {
   totalEligible: number;
   totalAttended: number;
-  totalJustified: number;
   totalMissed: number;
   percentage: number;
 }
 
 export interface MemberAttendanceItem {
   session: Session;
-  status: 'Presente' | 'Falta Justificada' | 'Falta Não Justificada';
+  status: 'Presente' | 'Falta';
   attendance?: AttendanceRecord;
-  justification?: Justification;
 }
 
 export interface MemberAttendanceBreakdown extends MemberAttendanceStats {
@@ -72,8 +68,7 @@ export function calculateSessionStats(
   session: Session,
   members: Member[],
   attendances: AttendanceRecord[],
-  visitors: VisitorRecord[] = [],
-  justifications: Justification[] = []
+  visitors: VisitorRecord[] = []
 ): SessionStats {
   // Eligible members: active members with degree >= session.degreeLevel
   const eligibleMembers = members.filter((m) => {
@@ -87,14 +82,7 @@ export function calculateSessionStats(
 
   const totalEligible = eligibleMembers.length;
   const totalPresentMembers = eligibleMembers.filter((m) => presentMemberIds.has(m.id)).length;
-  
   const totalVisitors = visitors.filter((v) => v.sessionId === session.id).length;
-
-  const sessionJustifications = justifications.filter(
-    (j) => j.sessionId === session.id && (j.status === 'Aprovado' || j.status === 'Pendente')
-  );
-  const totalJustified = sessionJustifications.length;
-
   const totalAbsent = Math.max(0, totalEligible - totalPresentMembers);
   const percentagePresent = totalEligible > 0 ? Math.round((totalPresentMembers / totalEligible) * 100) : 0;
 
@@ -102,7 +90,6 @@ export function calculateSessionStats(
     totalEligible,
     totalPresentMembers,
     totalVisitors,
-    totalJustified,
     totalAbsent,
     percentagePresent,
   };
@@ -114,8 +101,7 @@ export function calculateSessionStats(
 export function calculateMemberAttendance(
   memberOrId: Member | string,
   sessions: Session[],
-  attendances: AttendanceRecord[],
-  justifications: Justification[] = []
+  attendances: AttendanceRecord[]
 ): MemberAttendanceStats {
   const memberId = typeof memberOrId === 'string' ? memberOrId : memberOrId.id;
   const degreeLevel = typeof memberOrId === 'object' ? memberOrId.degreeLevel : 3;
@@ -128,38 +114,26 @@ export function calculateMemberAttendance(
     return {
       totalEligible: 0,
       totalAttended: 0,
-      totalJustified: 0,
       totalMissed: 0,
       percentage: 100,
     };
   }
 
   let totalAttended = 0;
-  let totalJustified = 0;
 
   eligibleSessions.forEach((s) => {
     const wasPresent = attendances.some((a) => a.sessionId === s.id && a.memberId === memberId);
     if (wasPresent) {
       totalAttended++;
-    } else {
-      const isJustified = justifications.some(
-        (j) => j.sessionId === s.id && j.memberId === memberId && j.status === 'Aprovado'
-      );
-      if (isJustified) {
-        totalJustified++;
-      }
     }
   });
 
-  const totalMissed = Math.max(0, totalEligible - totalAttended - totalJustified);
-  // Regimental percentage: (attended + justified) / totalEligible or attended / totalEligible
-  // In Freemasonry, percentage is typically calculated on effective presence or presence + approved justifications
-  const percentage = Math.round(((totalAttended + totalJustified) / totalEligible) * 100);
+  const totalMissed = Math.max(0, totalEligible - totalAttended);
+  const percentage = Math.round((totalAttended / totalEligible) * 100);
 
   return {
     totalEligible,
     totalAttended,
-    totalJustified,
     totalMissed,
     percentage,
   };
@@ -171,32 +145,21 @@ export function calculateMemberAttendance(
 export function getMemberAttendanceBreakdown(
   member: Member,
   sessions: Session[],
-  attendances: AttendanceRecord[],
-  justifications: Justification[] = []
+  attendances: AttendanceRecord[]
 ): MemberAttendanceBreakdown {
-  const stats = calculateMemberAttendance(member, sessions, attendances, justifications);
+  const stats = calculateMemberAttendance(member, sessions, attendances);
   const eligibleSessions = sortSessionsByCreationDesc(
     sessions.filter((s) => canDegreeAttend(member.degreeLevel, s.degreeLevel))
   );
 
   const items: MemberAttendanceItem[] = eligibleSessions.map((session) => {
     const att = attendances.find((a) => a.sessionId === session.id && a.memberId === member.id);
-    const just = justifications.find(
-      (j) => j.sessionId === session.id && j.memberId === member.id
-    );
-
-    let status: 'Presente' | 'Falta Justificada' | 'Falta Não Justificada' = 'Falta Não Justificada';
-    if (att) {
-      status = 'Presente';
-    } else if (just && just.status === 'Aprovado') {
-      status = 'Falta Justificada';
-    }
+    const status: 'Presente' | 'Falta' = att ? 'Presente' : 'Falta';
 
     return {
       session,
       status,
       attendance: att,
-      justification: just,
     };
   });
 
@@ -207,13 +170,12 @@ export function getMemberAttendanceBreakdown(
 }
 
 /**
- * Detects inactivity / consecutive absences alerts for lodge members (3 or more consecutive unexcused absences).
+ * Detects inactivity / consecutive absences alerts for lodge members (3 or more consecutive absences).
  */
 export function detectInactivityAlerts(
   members: Member[],
   sessions: Session[],
-  attendances: AttendanceRecord[],
-  justifications: Justification[] = []
+  attendances: AttendanceRecord[]
 ): InactivityAlert[] {
   const alerts: InactivityAlert[] = [];
   const sortedSessions = sortSessionsByCreationDesc(sessions);
@@ -241,16 +203,8 @@ export function detectInactivityAlerts(
         }
         break; // Stop counting consecutive missed sessions at the most recent attendance
       } else {
-        const isJustified = justifications.some(
-          (j) => j.sessionId === session.id && j.memberId === member.id && j.status === 'Aprovado'
-        );
-        if (!isJustified) {
-          consecutiveAbsences++;
-          missedSessionIds.push(session.id);
-        } else {
-          // A justified absence breaks the consecutive non-justified absence chain
-          break;
-        }
+        consecutiveAbsences++;
+        missedSessionIds.push(session.id);
       }
     }
 

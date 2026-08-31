@@ -1,5 +1,19 @@
 import { supabase, SUPABASE_URL } from './supabase';
-import { Member, Session, AttendanceRecord, VisitorRecord, Justification, Balaustre } from '../types/masonic';
+import { Member, Session, AttendanceRecord, VisitorRecord, Balaustre } from '../types/masonic';
+
+export interface RealtimeChangePayload<T = any> {
+  eventType: 'INSERT' | 'UPDATE' | 'DELETE' | string;
+  new: T;
+  old: T;
+}
+
+export interface RealtimeDeltasCallbacks {
+  onMemberChange?: (payload: RealtimeChangePayload<Member>) => void;
+  onSessionChange?: (payload: RealtimeChangePayload<Session>) => void;
+  onAttendanceChange?: (payload: RealtimeChangePayload<AttendanceRecord>) => void;
+  onVisitorChange?: (payload: RealtimeChangePayload<VisitorRecord>) => void;
+  onBalaustreChange?: (payload: RealtimeChangePayload<Balaustre>) => void;
+}
 
 export interface SupabaseTableStatus {
   table: string;
@@ -35,8 +49,32 @@ CREATE TABLE IF NOT EXISTS members (
   "currentOfficerRole" TEXT,
   "joinedDate" TEXT,
   phone TEXT,
-  password TEXT
+  password TEXT,
+  "birthDate" TEXT,
+  "initiationDate" TEXT,
+  "elevationDate" TEXT,
+  "exaltationDate" TEXT,
+  "installationDate" TEXT,
+  "affiliationDate" TEXT,
+  "regularizationDate" TEXT,
+  "philosophicalDegree" INT,
+  notes TEXT,
+  wife JSONB,
+  children JSONB
 );
+
+-- MIGRAÇÃO DE COLUNAS ADICIONAIS CASO A TABELA DE MEMBROS JÁ EXISTA
+ALTER TABLE members ADD COLUMN IF NOT EXISTS "birthDate" TEXT;
+ALTER TABLE members ADD COLUMN IF NOT EXISTS "initiationDate" TEXT;
+ALTER TABLE members ADD COLUMN IF NOT EXISTS "elevationDate" TEXT;
+ALTER TABLE members ADD COLUMN IF NOT EXISTS "exaltationDate" TEXT;
+ALTER TABLE members ADD COLUMN IF NOT EXISTS "installationDate" TEXT;
+ALTER TABLE members ADD COLUMN IF NOT EXISTS "affiliationDate" TEXT;
+ALTER TABLE members ADD COLUMN IF NOT EXISTS "regularizationDate" TEXT;
+ALTER TABLE members ADD COLUMN IF NOT EXISTS "philosophicalDegree" INT;
+ALTER TABLE members ADD COLUMN IF NOT EXISTS notes TEXT;
+ALTER TABLE members ADD COLUMN IF NOT EXISTS wife JSONB;
+ALTER TABLE members ADD COLUMN IF NOT EXISTS children JSONB;
 
 -- 2. TABELA DE SESSÕES
 CREATE TABLE IF NOT EXISTS sessions (
@@ -52,8 +90,11 @@ CREATE TABLE IF NOT EXISTS sessions (
   "qrCodeToken" TEXT,
   active BOOLEAN DEFAULT false,
   officers JSONB,
-  notes TEXT
+  notes TEXT,
+  "createdAt" TEXT
 );
+
+ALTER TABLE sessions ADD COLUMN IF NOT EXISTS "createdAt" TEXT;
 
 -- 3. TABELA DE PRESENÇAS / CHAMADA
 CREATE TABLE IF NOT EXISTS attendances (
@@ -78,23 +119,7 @@ CREATE TABLE IF NOT EXISTS visitors (
   timestamp TEXT
 );
 
--- 5. TABELA DE JUSTIFICATIVAS
-CREATE TABLE IF NOT EXISTS justifications (
-  id TEXT PRIMARY KEY,
-  "memberId" TEXT NOT NULL,
-  "sessionId" TEXT NOT NULL,
-  reason TEXT,
-  category TEXT,
-  "fileUrl" TEXT,
-  "fileName" TEXT,
-  "fileType" TEXT,
-  status TEXT,
-  "submittedAt" TEXT,
-  "reviewedAt" TEXT,
-  "reviewerNotes" TEXT
-);
-
--- 6. TABELA DE BALAÚSTRES
+-- 5. TABELA DE BALAÚSTRES
 CREATE TABLE IF NOT EXISTS balaustres (
   id TEXT PRIMARY KEY,
   "sessionId" TEXT,
@@ -112,7 +137,6 @@ ALTER TABLE members ENABLE ROW LEVEL SECURITY;
 ALTER TABLE sessions ENABLE ROW LEVEL SECURITY;
 ALTER TABLE attendances ENABLE ROW LEVEL SECURITY;
 ALTER TABLE visitors ENABLE ROW LEVEL SECURITY;
-ALTER TABLE justifications ENABLE ROW LEVEL SECURITY;
 ALTER TABLE balaustres ENABLE ROW LEVEL SECURITY;
 
 -- DADOS DE PERMISSÃO COMPLETA PARA OS PAPÉIS DO SUPABASE (anon, authenticated e service_role)
@@ -135,9 +159,6 @@ CREATE POLICY "Allow public access attendances" ON attendances FOR ALL USING (tr
 DROP POLICY IF EXISTS "Allow public access visitors" ON visitors;
 CREATE POLICY "Allow public access visitors" ON visitors FOR ALL USING (true) WITH CHECK (true);
 
-DROP POLICY IF EXISTS "Allow public access justifications" ON justifications;
-CREATE POLICY "Allow public access justifications" ON justifications FOR ALL USING (true) WITH CHECK (true);
-
 DROP POLICY IF EXISTS "Allow public access balaustres" ON balaustres;
 CREATE POLICY "Allow public access balaustres" ON balaustres FOR ALL USING (true) WITH CHECK (true);
 `;
@@ -145,7 +166,7 @@ CREATE POLICY "Allow public access balaustres" ON balaustres FOR ALL USING (true
 export const supabaseService = {
   // CONNECTION DIAGNOSTIC
   async checkConnection(): Promise<SupabaseConnectionStatus> {
-    const targetTables = ['members', 'sessions', 'attendances', 'visitors', 'justifications', 'balaustres'];
+    const targetTables = ['members', 'sessions', 'attendances', 'visitors', 'balaustres'];
     const tableStatuses: SupabaseTableStatus[] = [];
     let isApiConnected = false;
     let globalError: string | undefined = undefined;
@@ -229,16 +250,46 @@ export const supabaseService = {
 
   async upsertMember(member: Member): Promise<{ success: boolean; error?: string }> {
     try {
+      // 1. Tentar inserção/atualização com todos os campos (incluindo vínculos familiares e datas comemorativas)
       const { error } = await supabase.from('members').upsert(member);
-      if (error) {
-        if (error.code === 'PGRST205') {
-          console.warn('[Supabase] Tabela "members" ainda não foi criada no Supabase. Os dados estão salvos localmente.');
-        } else {
-          console.error('[Supabase] upsertMember error:', error);
-        }
-        return { success: false, error: error.message };
+      if (!error) {
+        return { success: true };
       }
-      return { success: true };
+
+      // 2. Se a tabela do Supabase ainda não tiver as colunas estendidas (PGRST204: schema cache missing column)
+      if (error.code === 'PGRST204' || (error.message && error.message.includes('column'))) {
+        console.warn(`[Supabase] Coluna estendida ausente na tabela members (${error.message}). Realizando fallback para salvar dados cadastrais base no Supabase...`);
+        
+        const baseMemberPayload: Record<string, any> = {
+          id: member.id,
+          fullName: member.fullName,
+          cpf: member.cpf,
+          email: member.email,
+          photoUrl: member.photoUrl,
+          cim: member.cim,
+          degree: member.degree,
+          degreeLevel: member.degreeLevel,
+          status: member.status,
+          currentOfficerRole: member.currentOfficerRole || null,
+          joinedDate: member.joinedDate,
+          phone: member.phone,
+          password: member.password || '',
+        };
+
+        const { error: fallbackError } = await supabase.from('members').upsert(baseMemberPayload);
+        if (!fallbackError) {
+          return { success: true };
+        }
+        console.error('[Supabase] upsertMember fallback error:', fallbackError);
+        return { success: false, error: fallbackError.message };
+      }
+
+      if (error.code === 'PGRST205') {
+        console.warn('[Supabase] Tabela "members" ainda não foi criada no Supabase. Os dados estão salvos localmente.');
+      } else {
+        console.error('[Supabase] upsertMember error:', error);
+      }
+      return { success: false, error: error.message };
     } catch (err: any) {
       console.warn('[Supabase] upsertMember exception:', err);
       return { success: false, error: err?.message || 'Erro de conexão' };
@@ -282,15 +333,39 @@ export const supabaseService = {
   async upsertSession(session: Session): Promise<{ success: boolean; error?: string }> {
     try {
       const { error } = await supabase.from('sessions').upsert(session);
-      if (error) {
-        if (error.code === 'PGRST205') {
-          console.warn('[Supabase] Tabela "sessions" ainda não foi criada no Supabase.');
-        } else {
-          console.error('[Supabase] upsertSession error:', error);
-        }
-        return { success: false, error: error.message };
+      if (!error) {
+        return { success: true };
       }
-      return { success: true };
+
+      if (error.code === 'PGRST204' || (error.message && error.message.includes('column'))) {
+        const baseSessionPayload: Record<string, any> = {
+          id: session.id,
+          title: session.title,
+          type: session.type,
+          subtype: session.subtype,
+          degree: session.degree,
+          degreeLevel: session.degreeLevel,
+          date: session.date,
+          time: session.time,
+          location: session.location,
+          qrCodeToken: session.qrCodeToken,
+          active: session.active,
+          officers: session.officers,
+          notes: session.notes,
+        };
+        const { error: fallbackError } = await supabase.from('sessions').upsert(baseSessionPayload);
+        if (!fallbackError) {
+          return { success: true };
+        }
+        return { success: false, error: fallbackError.message };
+      }
+
+      if (error.code === 'PGRST205') {
+        console.warn('[Supabase] Tabela "sessions" ainda não foi criada no Supabase.');
+      } else {
+        console.error('[Supabase] upsertSession error:', error);
+      }
+      return { success: false, error: error.message };
     } catch (err: any) {
       console.warn('[Supabase] upsertSession exception:', err);
       return { success: false, error: err?.message || 'Erro de conexão' };
@@ -301,7 +376,6 @@ export const supabaseService = {
     try {
       await supabase.from('attendances').delete().eq('sessionId', id);
       await supabase.from('visitors').delete().eq('sessionId', id);
-      await supabase.from('justifications').delete().eq('sessionId', id);
       await supabase.from('balaustres').delete().eq('sessionId', id);
       const { error } = await supabase.from('sessions').delete().eq('id', id);
       if (error) {
@@ -323,7 +397,6 @@ export const supabaseService = {
     try {
       await supabase.from('attendances').delete().neq('id', '');
       await supabase.from('visitors').delete().neq('id', '');
-      await supabase.from('justifications').delete().neq('id', '');
       await supabase.from('balaustres').delete().neq('id', '');
       const { error } = await supabase.from('sessions').delete().neq('id', '');
       if (error && error.code !== 'PGRST205') {
@@ -444,59 +517,7 @@ export const supabaseService = {
     }
   },
 
-  // 5. JUSTIFICATIONS CRUD
-  async getJustifications(): Promise<Justification[] | null> {
-    try {
-      const { data, error } = await supabase.from('justifications').select('*');
-      if (error) {
-        console.warn('[Supabase] getJustifications error:', error.message);
-        return null;
-      }
-      if (!data || data.length === 0) return null;
-      return (data as Justification[]) || [];
-    } catch (err) {
-      console.warn('[Supabase] getJustifications exception:', err);
-      return null;
-    }
-  },
-
-  async upsertJustification(justification: Justification): Promise<{ success: boolean; error?: string }> {
-    try {
-      const { error } = await supabase.from('justifications').upsert(justification);
-      if (error) {
-        if (error.code === 'PGRST205') {
-          console.warn('[Supabase] Tabela "justifications" ainda não foi criada no Supabase.');
-        } else {
-          console.error('[Supabase] upsertJustification error:', error);
-        }
-        return { success: false, error: error.message };
-      }
-      return { success: true };
-    } catch (err: any) {
-      console.warn('[Supabase] upsertJustification exception:', err);
-      return { success: false, error: err?.message || 'Erro de conexão' };
-    }
-  },
-
-  async deleteJustification(id: string): Promise<{ success: boolean; error?: string }> {
-    try {
-      const { error } = await supabase.from('justifications').delete().eq('id', id);
-      if (error) {
-        if (error.code === 'PGRST205') {
-          console.warn('[Supabase] Tabela "justifications" ainda não foi criada no Supabase.');
-        } else {
-          console.error('[Supabase] deleteJustification error:', error);
-        }
-        return { success: false, error: error.message };
-      }
-      return { success: true };
-    } catch (err: any) {
-      console.warn('[Supabase] deleteJustification exception:', err);
-      return { success: false, error: err?.message || 'Erro de conexão' };
-    }
-  },
-
-  // 6. BALAUSTRES CRUD
+  // 5. BALAUSTRES CRUD
   async getBalaustres(): Promise<Balaustre[] | null> {
     try {
       const { data, error } = await supabase.from('balaustres').select('*');
@@ -548,7 +569,78 @@ export const supabaseService = {
     }
   },
 
-  // REALTIME REAL-TIME SUBSCRIBER
+  // OPTIMIZED REALTIME DELTA SUBSCRIBER (Zero extra REST GETs on mutation)
+  subscribeToRealtimeDeltas(callbacks: RealtimeDeltasCallbacks) {
+    try {
+      const channel = supabase
+        .channel('masonic-granular-deltas')
+        .on(
+          'postgres_changes',
+          { event: '*', schema: 'public', table: 'attendances' },
+          (payload) => {
+            callbacks.onAttendanceChange?.({
+              eventType: payload.eventType,
+              new: payload.new as AttendanceRecord,
+              old: payload.old as AttendanceRecord,
+            });
+          }
+        )
+        .on(
+          'postgres_changes',
+          { event: '*', schema: 'public', table: 'visitors' },
+          (payload) => {
+            callbacks.onVisitorChange?.({
+              eventType: payload.eventType,
+              new: payload.new as VisitorRecord,
+              old: payload.old as VisitorRecord,
+            });
+          }
+        )
+        .on(
+          'postgres_changes',
+          { event: '*', schema: 'public', table: 'sessions' },
+          (payload) => {
+            callbacks.onSessionChange?.({
+              eventType: payload.eventType,
+              new: payload.new as Session,
+              old: payload.old as Session,
+            });
+          }
+        )
+        .on(
+          'postgres_changes',
+          { event: '*', schema: 'public', table: 'members' },
+          (payload) => {
+            callbacks.onMemberChange?.({
+              eventType: payload.eventType,
+              new: payload.new as Member,
+              old: payload.old as Member,
+            });
+          }
+        )
+        .on(
+          'postgres_changes',
+          { event: '*', schema: 'public', table: 'balaustres' },
+          (payload) => {
+            callbacks.onBalaustreChange?.({
+              eventType: payload.eventType,
+              new: payload.new as Balaustre,
+              old: payload.old as Balaustre,
+            });
+          }
+        )
+        .subscribe();
+
+      return () => {
+        supabase.removeChannel(channel);
+      };
+    } catch (e) {
+      console.warn('[Supabase] Realtime subscription error:', e);
+      return () => {};
+    }
+  },
+
+  // Fallback broad subscriber for compatibility
   subscribeToAll(onDataChanged: () => void) {
     try {
       const channel = supabase
@@ -573,7 +665,6 @@ export const supabaseService = {
     sessions: Session[];
     attendances: AttendanceRecord[];
     visitors: VisitorRecord[];
-    justifications: Justification[];
     balaustres: Balaustre[];
   }): Promise<{ success: boolean; errors: string[] }> {
     const errors: string[] = [];
@@ -609,10 +700,6 @@ export const supabaseService = {
     for (const v of payload.visitors) {
       const res = await this.insertVisitor(v);
       if (!res.success && res.error) errors.push(`visitante ${v.fullName}: ${res.error}`);
-    }
-    for (const j of payload.justifications) {
-      const res = await this.upsertJustification(j);
-      if (!res.success && res.error) errors.push(`justificativa ${j.id}: ${res.error}`);
     }
     for (const b of payload.balaustres) {
       const res = await this.upsertBalaustre(b);

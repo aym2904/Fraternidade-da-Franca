@@ -109,15 +109,49 @@ export const EditProfileModal: React.FC<EditProfileModalProps> = ({
       return;
     }
 
+    const phoneDigits = phone.replace(/\D/g, '');
+    if (!phone.trim() || phoneDigits.length < 10) {
+      setErrorMessage('O Telefone / WhatsApp é obrigatório (informe DDD e número completo).');
+      return;
+    }
+
+    const cleanedEmail = formatEmail(email);
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!cleanedEmail || !emailRegex.test(cleanedEmail)) {
+      setErrorMessage('O E-mail de Contato é obrigatório e deve ser um endereço de e-mail válido.');
+      return;
+    }
+
+    const cpfDigits = cpf.replace(/\D/g, '');
+    if (!cpf.trim() || cpfDigits.length !== 11) {
+      setErrorMessage('O CPF é obrigatório e deve conter os 11 dígitos.');
+      return;
+    }
+
+    if (!joinedDate.trim()) {
+      setErrorMessage('A Data da Iniciação Maçônica é obrigatória.');
+      return;
+    }
+
+    if (!password.trim()) {
+      setErrorMessage('A Senha de Acesso ao Portal é obrigatória.');
+      return;
+    }
+
+    if (password.trim().length < 4) {
+      setErrorMessage('A Senha de Acesso ao Portal deve conter no mínimo 4 caracteres.');
+      return;
+    }
+
     const updatedMember: Member = {
       ...currentUser,
       fullName: cleanedName,
-      cpf: cpf ? formatCPF(cpf) : '',
-      phone: phone ? formatPhone(phone) : '',
-      email: email ? formatEmail(email) : '',
-      joinedDate: joinedDate || currentUser.joinedDate,
+      cpf: formatCPF(cpf),
+      phone: formatPhone(phone),
+      email: cleanedEmail,
+      joinedDate: joinedDate.trim(),
       photoUrl: photoUrl.trim() || DEFAULT_NEUTRAL_AVATAR,
-      password: password.trim() ? password.trim() : (currentUser.password || '123456'),
+      password: password.trim(),
     };
 
     onSave(updatedMember);
@@ -131,8 +165,9 @@ export const EditProfileModal: React.FC<EditProfileModalProps> = ({
   const isSysAdmin = isSystemAdmin(currentUser);
 
   return (
-    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-950/85 backdrop-blur-md animate-in fade-in duration-150 overflow-y-auto">
-      <div className="bg-slate-900 border border-slate-700 rounded-3xl max-w-xl w-full p-6 shadow-2xl relative my-8 space-y-5 text-slate-100">
+    <div className="fixed inset-0 z-[100] bg-slate-950/85 backdrop-blur-md overflow-y-auto overscroll-contain animate-in fade-in duration-150 p-3 sm:p-6">
+      <div className="min-h-full flex flex-col items-center justify-start sm:justify-center py-4 sm:py-6">
+        <div className="bg-slate-900 border border-slate-700 rounded-3xl max-w-xl w-full p-4 sm:p-6 shadow-2xl relative space-y-5 text-slate-100">
         
         {/* Modal Header */}
         <div className="flex items-center justify-between border-b border-slate-800 pb-4">
@@ -311,7 +346,7 @@ export const EditProfileModal: React.FC<EditProfileModalProps> = ({
             {/* Telefone / WhatsApp */}
             <div>
               <label className="block text-slate-300 font-medium mb-1">
-                Telefone / WhatsApp
+                Telefone / WhatsApp <span className="text-amber-400">*</span>
               </label>
               <div className="relative">
                 <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-500">
@@ -319,6 +354,7 @@ export const EditProfileModal: React.FC<EditProfileModalProps> = ({
                 </div>
                 <input
                   type="text"
+                  required
                   value={phone}
                   onChange={(e) => setPhone(formatPhone(e.target.value))}
                   placeholder="(00) 00000-0000"
@@ -330,7 +366,7 @@ export const EditProfileModal: React.FC<EditProfileModalProps> = ({
             {/* E-mail */}
             <div>
               <label className="block text-slate-300 font-medium mb-1">
-                E-mail de Contato
+                E-mail de Contato <span className="text-amber-400">*</span>
               </label>
               <div className="relative">
                 <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-500">
@@ -338,6 +374,7 @@ export const EditProfileModal: React.FC<EditProfileModalProps> = ({
                 </div>
                 <input
                   type="email"
+                  required
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   placeholder="seuemail@exemplo.com"
@@ -349,7 +386,7 @@ export const EditProfileModal: React.FC<EditProfileModalProps> = ({
             {/* CPF */}
             <div>
               <label className="block text-slate-300 font-medium mb-1">
-                CPF
+                CPF <span className="text-amber-400">*</span>
               </label>
               <div className="relative">
                 <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-500">
@@ -357,6 +394,7 @@ export const EditProfileModal: React.FC<EditProfileModalProps> = ({
                 </div>
                 <input
                   type="text"
+                  required
                   value={cpf}
                   onChange={(e) => setCpf(formatCPF(e.target.value))}
                   placeholder="000.000.000-00"
@@ -368,7 +406,7 @@ export const EditProfileModal: React.FC<EditProfileModalProps> = ({
             {/* Data da Iniciação Maçônica */}
             <div>
               <label className="block text-slate-300 font-medium mb-1">
-                Data da Iniciação
+                Data da Iniciação <span className="text-amber-400">*</span>
               </label>
               <div className="relative">
                 <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-500">
@@ -376,6 +414,7 @@ export const EditProfileModal: React.FC<EditProfileModalProps> = ({
                 </div>
                 <input
                   type="date"
+                  required
                   value={joinedDate}
                   onChange={(e) => setJoinedDate(e.target.value)}
                   className="w-full bg-slate-950 border border-slate-800 rounded-xl pl-9 pr-3 py-2.5 text-slate-100 focus:outline-none focus:border-amber-500 focus:ring-1 focus:ring-amber-500/20 font-mono"
@@ -388,18 +427,19 @@ export const EditProfileModal: React.FC<EditProfileModalProps> = ({
               <div className="flex items-center justify-between">
                 <label className="text-slate-300 font-medium flex items-center space-x-1.5">
                   <Lock className="w-3.5 h-3.5 text-amber-400" />
-                  <span>Senha de Acesso ao Portal</span>
+                  <span>Senha de Acesso ao Portal <span className="text-amber-400">*</span></span>
                 </label>
                 <span className="text-[10px] text-slate-400">
-                  Utilizada para login no portal
+                  Utilizada para login no portal (mínimo 4 dígitos)
                 </span>
               </div>
               <div className="relative">
                 <input
                   type={showPassword ? 'text' : 'password'}
+                  required
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  placeholder="Digite sua nova senha"
+                  placeholder="Digite sua senha de acesso"
                   className="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2.5 text-slate-100 placeholder-slate-600 font-mono focus:outline-none focus:border-amber-500 focus:ring-1 focus:ring-amber-500/20 pr-10"
                 />
                 <button
@@ -434,5 +474,6 @@ export const EditProfileModal: React.FC<EditProfileModalProps> = ({
         </form>
       </div>
     </div>
-  );
+  </div>
+);
 };

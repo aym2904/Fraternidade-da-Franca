@@ -7,7 +7,6 @@ export interface RolePermissions {
   canManageMembers: boolean;
   canManageAttendance: boolean;
   canManageBalaustres: boolean;
-  canManageJustifications: boolean;
   canViewReports: boolean;
   roleTitle: string;
   description: string;
@@ -27,10 +26,9 @@ export const OFFICER_PERMISSIONS_MAP: Record<string, RolePermissions> = {
     canManageMembers: true,
     canManageAttendance: true,
     canManageBalaustres: true,
-    canManageJustifications: true,
     canViewReports: true,
     roleTitle: 'Venerável Mestre',
-    description: 'Presidência dos trabalhos, abertura e gestão de sessões, exibição do QR Code, aprovação de atas e justificativas.',
+    description: 'Presidência dos trabalhos, abertura e gestão de sessões, exibição do QR Code e aprovação de atas.',
     badgeLabel: 'VENERÁVEL MESTRE',
   },
   'Secretário': {
@@ -39,10 +37,9 @@ export const OFFICER_PERMISSIONS_MAP: Record<string, RolePermissions> = {
     canManageMembers: true,
     canManageAttendance: true,
     canManageBalaustres: true,
-    canManageJustifications: true,
     canViewReports: true,
     roleTitle: 'Secretário',
-    description: 'Gestão administrativa, abertura de sessões, exibição de QR Code, lavratura de balaústres, livro negro e presenças.',
+    description: 'Gestão administrativa, abertura de sessões, exibição de QR Code, lavratura de balaústres e controle de presenças.',
     badgeLabel: 'SECRETÁRIO',
   },
   'Chanceler': {
@@ -51,10 +48,9 @@ export const OFFICER_PERMISSIONS_MAP: Record<string, RolePermissions> = {
     canManageMembers: true,
     canManageAttendance: true,
     canManageBalaustres: true,
-    canManageJustifications: true,
     canViewReports: true,
     roleTitle: 'Chanceler',
-    description: 'Guarda do timbre, abertura de reuniões, exibição do QR Code, controle de presença do quadro, visitantes e abonos.',
+    description: 'Guarda do timbre, abertura de reuniões, exibição do QR Code e controle de frequência do quadro e visitantes.',
     badgeLabel: 'CHANCELER',
   },
 };

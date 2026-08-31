@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { QRCodeSVG } from 'qrcode.react';
 import {
   QrCode,
@@ -16,7 +16,7 @@ import {
   Check,
   AlertTriangle
 } from 'lucide-react';
-import { Session, Member, AttendanceRecord, VisitorRecord, Justification } from '../types/masonic';
+import { Session, Member, AttendanceRecord, VisitorRecord } from '../types/masonic';
 import { calculateSessionStats, canDegreeAttend } from '../utils/masonicUtils';
 import { isLodgeAdmin, isSystemAdmin } from '../utils/authUtils';
 import { getMemberPhotoUrl } from '../utils/avatarUtils';
@@ -27,7 +27,6 @@ interface LiveSessionPanelProps {
   members: Member[];
   attendances: AttendanceRecord[];
   visitors: VisitorRecord[];
-  justifications: Justification[];
   currentUser: Member;
   onRecordAttendance: (memberId: string, method: 'QR_CODE' | 'MANUAL') => void;
   onRemoveAttendance: (memberId: string) => void;
@@ -41,7 +40,6 @@ export const LiveSessionPanel: React.FC<LiveSessionPanelProps> = ({
   members = [],
   attendances = [],
   visitors = [],
-  justifications = [],
   currentUser,
   onRecordAttendance,
   onRemoveAttendance,
@@ -96,10 +94,25 @@ export const LiveSessionPanel: React.FC<LiveSessionPanelProps> = ({
     );
   }
 
-  const stats = calculateSessionStats(activeSession, members, attendances, visitors, justifications);
-  const sessionAttendances = attendances.filter((a) => a.sessionId === activeSession.id);
-  const presentMemberIds = new Set(sessionAttendances.map((a) => a.memberId));
-  const currentSessionVisitors = visitors.filter((v) => v.sessionId === activeSession.id);
+  const stats = useMemo(
+    () => calculateSessionStats(activeSession, members, attendances, visitors),
+    [activeSession, members, attendances, visitors]
+  );
+
+  const sessionAttendances = useMemo(
+    () => attendances.filter((a) => a.sessionId === activeSession.id),
+    [attendances, activeSession.id]
+  );
+
+  const presentMemberIds = useMemo(
+    () => new Set(sessionAttendances.map((a) => a.memberId)),
+    [sessionAttendances]
+  );
+
+  const currentSessionVisitors = useMemo(
+    () => visitors.filter((v) => v.sessionId === activeSession.id),
+    [visitors, activeSession.id]
+  );
 
   const formatCheckInTime = (isoString?: string) => {
     if (!isoString) return '';
@@ -112,20 +125,27 @@ export const LiveSessionPanel: React.FC<LiveSessionPanelProps> = ({
     }
   };
 
-  const checkedInMembersList = sessionAttendances
-    .map((att) => {
-      const member = members.find((m) => m.id === att.memberId);
-      return {
+  const checkedInMembersList = useMemo(() => {
+    const memberMap = new Map(members.map((m) => [m.id, m]));
+    return sessionAttendances
+      .map((att) => ({
         attendance: att,
-        member,
-      };
-    })
-    .filter((item): item is { attendance: AttendanceRecord; member: Member } => item.member !== undefined)
-    .sort((a, b) => new Date(b.attendance.timestamp).getTime() - new Date(a.attendance.timestamp).getTime());
+        member: memberMap.get(att.memberId),
+      }))
+      .filter((item): item is { attendance: AttendanceRecord; member: Member } => item.member !== undefined)
+      .sort((a, b) => new Date(b.attendance.timestamp).getTime() - new Date(a.attendance.timestamp).getTime());
+  }, [sessionAttendances, members]);
 
   // Degree Lock check for current logged-in user
-  const userCanAttend = canDegreeAttend(currentUser.degreeLevel, activeSession.degreeLevel);
-  const isUserCheckedIn = presentMemberIds.has(currentUser.id);
+  const userCanAttend = useMemo(
+    () => canDegreeAttend(currentUser.degreeLevel, activeSession.degreeLevel),
+    [currentUser.degreeLevel, activeSession.degreeLevel]
+  );
+
+  const isUserCheckedIn = useMemo(
+    () => presentMemberIds.has(currentUser.id),
+    [presentMemberIds, currentUser.id]
+  );
 
   const handleSelfQrCheckIn = () => {
     setScannerFeedback(null);
@@ -172,12 +192,16 @@ export const LiveSessionPanel: React.FC<LiveSessionPanelProps> = ({
     });
   };
 
-  const filteredMembers = members.filter((m) => {
-    const matchesSearch =
-      m.fullName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      m.cim.includes(searchTerm);
-    return matchesSearch;
-  });
+  const filteredMembers = useMemo(() => {
+    const term = searchTerm.trim().toLowerCase();
+    if (!term) return members;
+    return members.filter((m) => {
+      return (
+        m.fullName.toLowerCase().includes(term) ||
+        m.cim.includes(term)
+      );
+    });
+  }, [members, searchTerm]);
 
   return (
     <div className="space-y-6">
@@ -225,9 +249,6 @@ export const LiveSessionPanel: React.FC<LiveSessionPanelProps> = ({
               </p>
               <p className="text-slate-300">
                 Visitantes: <strong className="text-blue-400 font-mono">{stats.totalVisitors}</strong>
-              </p>
-              <p className="text-slate-300">
-                Justificados: <strong className="text-amber-400 font-mono">{stats.totalJustified}</strong>
               </p>
             </div>
           </div>
@@ -652,9 +673,6 @@ export const LiveSessionPanel: React.FC<LiveSessionPanelProps> = ({
               const isPresent = presentMemberIds.has(m.id);
               const attRecord = sessionAttendances.find((a) => a.memberId === m.id);
               const canAttend = canDegreeAttend(m.degreeLevel, activeSession.degreeLevel);
-              const justification = justifications.find(
-                (j) => j.sessionId === activeSession.id && j.memberId === m.id && j.status === 'Aprovado'
-              );
 
               return (
                 <div
@@ -671,11 +689,6 @@ export const LiveSessionPanel: React.FC<LiveSessionPanelProps> = ({
                         {!canAttend && (
                           <span className="text-[9px] bg-rose-950 text-rose-300 border border-rose-800 px-1.5 py-0.2 rounded">
                             Grau Incompatível ({m.degree})
-                          </span>
-                        )}
-                        {justification && (
-                          <span className="text-[9px] bg-amber-950 text-amber-300 border border-amber-800 px-1.5 py-0.2 rounded">
-                            Falta Abonada
                           </span>
                         )}
                       </div>

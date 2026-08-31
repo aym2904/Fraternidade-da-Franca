@@ -1,0 +1,69 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <defs>
+    <!-- Outer radial background glow -->
+    <radialGradient id="bgGlow" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#141c2b" />
+      <stop offset="85%" stop-color="#070b13" />
+      <stop offset="100%" stop-color="#020408" />
+    </radialGradient>
+
+    <!-- Metallic Gold Gradient -->
+    <linearGradient id="goldGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#FCE588" />
+      <stop offset="30%" stop-color="#D4AF37" />
+      <stop offset="60%" stop-color="#AA7C11" />
+      <stop offset="85%" stop-color="#F3E5AB" />
+      <stop offset="100%" stop-color="#996515" />
+    </linearGradient>
+
+    <!-- Gold Accent Stroke -->
+    <linearGradient id="goldStroke" x1="0%" y1="100%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#8a5a00" />
+      <stop offset="50%" stop-color="#FCE588" />
+      <stop offset="100%" stop-color="#AA7C11" />
+    </linearGradient>
+
+    <filter id="shadow" x="-10%" y="-10%" width="120%" height="120%">
+      <feDropShadow dx="0" dy="4" stdDeviation="6" flood-color="#000000" flood-opacity="0.8" />
+    </filter>
+  </defs>
+
+  <!-- Circular Dark Background with Gold Border -->
+  <circle cx="256" cy="256" r="248" fill="url(#bgGlow)" stroke="url(#goldGrad)" stroke-width="12" filter="url(#shadow)" />
+  <circle cx="256" cy="256" r="232" fill="none" stroke="#68470a" stroke-width="3" opacity="0.6" />
+
+  <!-- Inner Concentric Ring -->
+  <circle cx="256" cy="256" r="195" fill="none" stroke="url(#goldGrad)" stroke-width="8" />
+
+  <!-- THE SQUARE (Esquadro - pointing down) -->
+  <g fill="none" stroke="url(#goldGrad)" stroke-width="16" stroke-linecap="round" stroke-linejoin="miter">
+    <!-- Left arm of square -->
+    <path d="M125 285 L256 415 L387 285" />
+    <!-- Inner border of square -->
+    <path d="M152 285 L256 388 L360 285" stroke-width="6" stroke="url(#goldStroke)" />
+  </g>
+
+  <!-- THE COMPASS (Compasso - pointing up) -->
+  <!-- Compass Hinge/Joint at Top -->
+  <circle cx="256" cy="148" r="24" fill="#070b13" stroke="url(#goldGrad)" stroke-width="12" />
+  <circle cx="256" cy="148" r="10" fill="url(#goldGrad)" />
+
+  <!-- Compass Legs (extend down past the square) -->
+  <g fill="none" stroke="url(#goldGrad)" stroke-width="16" stroke-linecap="round">
+    <path d="M246 168 L142 388" />
+    <path d="M266 168 L370 388" />
+  </g>
+
+  <!-- THE LETTER G (Central and Illuminating) -->
+  <text 
+    x="256" 
+    y="286" 
+    font-family="'Cinzel', 'Times New Roman', 'Georgia', serif" 
+    font-size="108" 
+    font-weight="bold" 
+    fill="url(#goldGrad)" 
+    text-anchor="middle" 
+    dominant-baseline="central"
+    filter="url(#shadow)"
+  >G</text>
+</svg>

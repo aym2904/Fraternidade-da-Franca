@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import {
   Users,
   QrCode,
@@ -23,12 +23,11 @@ import {
   Paperclip,
   Download
 } from 'lucide-react';
-import { Member, Session, AttendanceRecord, VisitorRecord, Justification, InactivityAlert } from '../types/masonic';
+import { Member, Session, AttendanceRecord, VisitorRecord, InactivityAlert } from '../types/masonic';
 import { calculateSessionStats, calculateMemberAttendance } from '../utils/masonicUtils';
 import { isLodgeAdmin, isSystemAdmin, getRoleBadgeLabel, canAccessSessionDegree } from '../utils/authUtils';
 import { getMemberPhotoUrl } from '../utils/avatarUtils';
 import { formatDisplayDate } from '../utils/formatters';
-import { downloadJustificationAttachment } from '../utils/pdfGenerator';
 import { QrCodeScannerModal } from './QrCodeScannerModal';
 
 interface DashboardOverviewProps {
@@ -37,7 +36,6 @@ interface DashboardOverviewProps {
   members: Member[];
   attendances: AttendanceRecord[];
   visitors: VisitorRecord[];
-  justifications: Justification[];
   inactivityAlerts: InactivityAlert[];
   currentUser: Member;
   setActiveTab: (tab: string) => void;
@@ -54,7 +52,6 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({
   members = [],
   attendances = [],
   visitors = [],
-  justifications = [],
   inactivityAlerts = [],
   currentUser,
   setActiveTab,
@@ -68,44 +65,41 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({
   const [isScannerOpen, setIsScannerOpen] = useState(false);
 
   // Calculate data STRICTLY for the active session (if any)
-  const activeSessionAttendances = activeSession
-    ? attendances.filter((att) => att.sessionId === activeSession.id)
-    : [];
+  const activeSessionAttendances = useMemo(() => {
+    return activeSession
+      ? attendances.filter((att) => att.sessionId === activeSession.id)
+      : [];
+  }, [activeSession, attendances]);
 
-  const activeSessionVisitors = activeSession
-    ? visitors.filter((v) => v.sessionId === activeSession.id)
-    : [];
-
-  const activeSessionJustifications = activeSession
-    ? justifications.filter((j) => j.sessionId === activeSession.id)
-    : [];
-
-  const activeSessionPendingJustifications = activeSessionJustifications.filter(
-    (j) => j.status === 'Pendente'
-  );
+  const activeSessionVisitors = useMemo(() => {
+    return activeSession
+      ? visitors.filter((v) => v.sessionId === activeSession.id)
+      : [];
+  }, [activeSession, visitors]);
 
   // Calculate full lodge stats strictly for active session
-  const stats = activeSession
-    ? calculateSessionStats(activeSession, members, attendances, visitors, justifications)
-    : null;
+  const stats = useMemo(() => {
+    return activeSession
+      ? calculateSessionStats(activeSession, members, attendances, visitors)
+      : null;
+  }, [activeSession, members, attendances, visitors]);
 
   // Calculate Personal Attendance Stats for user (applicable to all brethren including officers)
-  const personalAttendance = calculateMemberAttendance(
-    currentUser,
-    sessions,
-    attendances,
-    justifications
-  );
-
-  const personalJustifications = justifications.filter((j) => j.memberId === currentUser.id);
+  const personalAttendance = useMemo(() => {
+    return calculateMemberAttendance(currentUser, sessions, attendances);
+  }, [currentUser, sessions, attendances]);
 
   // Sessions accessible to current user
-  const eligibleSessions = sessions.filter((s) => canAccessSessionDegree(currentUser, s.degreeLevel));
+  const eligibleSessions = useMemo(() => {
+    return sessions.filter((s) => canAccessSessionDegree(currentUser, s.degreeLevel));
+  }, [sessions, currentUser]);
 
   // Check if active session is accessible to user's degree
-  const isActiveSessionAccessible = activeSession
-    ? canAccessSessionDegree(currentUser, activeSession.degreeLevel)
-    : false;
+  const isActiveSessionAccessible = useMemo(() => {
+    return activeSession
+      ? canAccessSessionDegree(currentUser, activeSession.degreeLevel)
+      : false;
+  }, [activeSession, currentUser]);
 
   // Decide if we should render Personal View (forced or if user is non-admin)
   const isPersonalView = forcePersonalView || !isAdmin;
@@ -319,7 +313,7 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({
           </div>
         )}
 
-        {/* Personal Grid: Eligible Sessions & My Justifications */}
+        {/* Personal Grid: Eligible Sessions */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           {/* My Accessible Sessions */}
           <div className="bg-slate-900 border border-slate-800 rounded-2xl p-5 space-y-4">
@@ -334,9 +328,8 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({
             </div>
 
             <div className="space-y-2.5">
-              {eligibleSessions.slice(-4).reverse().map((s) => {
+              {eligibleSessions.slice(-5).reverse().map((s) => {
                 const attended = attendances.some((a) => a.sessionId === s.id && a.memberId === currentUser.id);
-                const justified = justifications.some((j) => j.sessionId === s.id && j.memberId === currentUser.id && j.status === 'Aprovado');
 
                 return (
                   <div
@@ -356,11 +349,6 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({
                           <CheckCircle2 className="w-3 h-3" />
                           <span>PRESENTE</span>
                         </span>
-                      ) : justified ? (
-                        <span className="inline-flex items-center space-x-1 px-2 py-1 rounded text-[10px] font-bold bg-amber-950 text-amber-300 border border-amber-800">
-                          <Clock className="w-3 h-3" />
-                          <span>JUSTIFICADO</span>
-                        </span>
                       ) : (
                         <span className="inline-flex items-center space-x-1 px-2 py-1 rounded text-[10px] font-bold bg-rose-950/60 text-rose-400 border border-rose-900">
                           <XCircle className="w-3 h-3" />
@@ -374,71 +362,36 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({
             </div>
           </div>
 
-          {/* My Justifications Section */}
+          {/* Quick Frequency & Status Card */}
           <div className="bg-slate-900 border border-slate-800 rounded-2xl p-5 space-y-4">
             <div className="flex items-center justify-between">
               <h3 className="font-serif-masonic text-base font-bold text-amber-200 flex items-center space-x-2">
-                <FileCheck2 className="w-4 h-4 text-amber-400" />
-                <span>Minhas Justificativas de Ausência</span>
+                <ShieldCheck className="w-4 h-4 text-amber-400" />
+                <span>Situação e Frequência do Obreiro</span>
               </h3>
-              <button
-                onClick={() => setActiveTab('justificativas')}
-                className="bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 border border-amber-500/40 text-xs px-2.5 py-1 rounded-lg flex items-center space-x-1 transition font-medium"
-              >
-                <PlusCircle className="w-3.5 h-3.5" />
-                <span>Submeter Atestado</span>
-              </button>
+              <span className="text-[11px] text-slate-400">
+                Resumo Geral
+              </span>
             </div>
 
-            {personalJustifications.length === 0 ? (
-              <div className="text-center py-8 text-xs text-slate-500 border border-dashed border-slate-800 rounded-xl">
-                <FileCheck2 className="w-8 h-8 text-slate-600 mx-auto mb-2" />
-                <p>Nenhuma justificativa enviada por você até o momento.</p>
+            <div className="bg-slate-950/60 border border-slate-800 rounded-xl p-4 space-y-3">
+              <div className="flex items-center justify-between text-xs pb-2 border-b border-slate-800">
+                <span className="text-slate-400">Percentual de Assiduidade:</span>
+                <span className="font-bold text-amber-400 font-mono text-sm">{personalAttendance.percentage}%</span>
               </div>
-            ) : (
-              <div className="space-y-2.5">
-                {personalJustifications.map((j) => {
-                  const displayDate = (j.submittedAt || (j as any).date || '').split('T')[0].split('-').reverse().join('/');
-                  return (
-                    <div
-                      key={j.id}
-                      className="bg-slate-950/60 border border-slate-800 rounded-xl p-3 text-xs space-y-1.5"
-                    >
-                      <div className="flex items-center justify-between">
-                        <span className="font-semibold text-slate-200">Data: {displayDate || '---'}</span>
-                        <span
-                          className={`text-[10px] font-bold px-2 py-0.5 rounded border ${
-                            j.status === 'Aprovado'
-                              ? 'bg-emerald-950 text-emerald-300 border-emerald-800'
-                              : j.status === 'Rejeitado'
-                              ? 'bg-rose-950 text-rose-300 border-rose-800'
-                              : 'bg-amber-950 text-amber-300 border-amber-800'
-                          }`}
-                        >
-                          {j.status.toUpperCase()}
-                        </span>
-                      </div>
-                      <p className="text-[11px] text-slate-400 line-clamp-1">{j.reason}</p>
-                      {j.fileName && (
-                        <button
-                          type="button"
-                          onClick={() => {
-                            const sess = sessions.find((s) => s.id === j.sessionId);
-                            downloadJustificationAttachment(j, currentUser, sess);
-                          }}
-                          className="inline-flex items-center space-x-1.5 text-[11px] text-amber-300 hover:text-amber-200 bg-amber-950/40 hover:bg-amber-900/60 border border-amber-800/50 hover:border-amber-600 rounded-md px-2 py-1 mt-1 transition group cursor-pointer"
-                          title={`Clique para baixar anexo: ${j.fileName}`}
-                        >
-                          <Paperclip className="w-3 h-3 text-amber-400 group-hover:rotate-12 transition-transform shrink-0" />
-                          <span className="truncate max-w-[220px] underline underline-offset-2">Anexo: {j.fileName}</span>
-                          <Download className="w-2.5 h-2.5 ml-1 text-amber-400 group-hover:text-amber-200 shrink-0" />
-                        </button>
-                      )}
-                    </div>
-                  );
-                })}
+              <div className="flex items-center justify-between text-xs pb-2 border-b border-slate-800">
+                <span className="text-slate-400">Presenças Confirmadas:</span>
+                <span className="font-bold text-emerald-400 font-mono">{personalAttendance.totalAttended} de {personalAttendance.totalEligible} sessões</span>
               </div>
-            )}
+              <div className="flex items-center justify-between text-xs">
+                <span className="text-slate-400">Total de Faltas:</span>
+                <span className="font-bold text-rose-400 font-mono">{personalAttendance.totalMissed}</span>
+              </div>
+            </div>
+
+            <div className="p-3 bg-slate-950/40 border border-slate-800/80 rounded-xl text-[11px] text-slate-400 leading-relaxed">
+              💡 Para registrar sua presença, utilize a câmera do celular para escanear o QR Code projetado no Templo durante a abertura da sessão.
+            </div>
           </div>
         </div>
 
@@ -530,8 +483,8 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({
                     <span className="font-bold text-blue-400">{stats.totalVisitors}</span>
                   </div>
                   <div className="flex items-center justify-between space-x-4">
-                    <span className="text-slate-400">Faltas Justificadas:</span>
-                    <span className="font-bold text-amber-400">{stats.totalJustified}</span>
+                    <span className="text-slate-400">Ausentes do Quadro:</span>
+                    <span className="font-bold text-rose-400">{stats.totalAbsent}</span>
                   </div>
                 </div>
               </div>
@@ -580,7 +533,7 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({
       )}
 
       {/* Quick Metrics Grid for Active Session */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
         {/* Present Members in Active Session Card */}
         <div
           onClick={() => {
@@ -636,36 +589,9 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({
           <div className="mt-2 text-[11px] text-slate-500 flex items-center justify-between pt-2 border-t border-slate-800/80">
             <span>
               {activeSession
-                ? `Faltas s/ justificativa: ${Math.max(0, (stats?.totalAbsent || 0) - (stats?.totalJustified || 0))}`
+                ? `Total de faltantes: ${stats?.totalAbsent || 0}`
                 : 'Sem sessão ativa'}
             </span>
-          </div>
-        </div>
-
-        {/* Pending Justifications for Active Session Card */}
-        <div
-          onClick={() => setActiveTab('justificativas')}
-          className="bg-slate-900 border border-slate-800 hover:border-amber-500/50 rounded-xl p-4 transition cursor-pointer group"
-        >
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-medium text-slate-400">Justificativas na Sessão</span>
-            <div className="p-2 rounded-lg bg-amber-500/10 text-amber-400 group-hover:scale-110 transition">
-              <FileCheck2 className="w-5 h-5" />
-            </div>
-          </div>
-          <div className="mt-3">
-            <span className="text-2xl font-bold text-amber-400">
-              {activeSession ? activeSessionJustifications.length : 0}
-            </span>
-            <span className="text-xs text-slate-400 ml-2">
-              {activeSession
-                ? `${activeSessionPendingJustifications.length} Pendente(s)`
-                : 'Sem Sessão Ativa'}
-            </span>
-          </div>
-          <div className="mt-2 text-[11px] text-amber-500/80 flex items-center space-x-1 pt-2 border-t border-slate-800/80">
-            <Clock className="w-3 h-3" />
-            <span>{activeSession ? 'Abonos desta sessão' : 'Aguardando sessão'}</span>
           </div>
         </div>
 
@@ -851,12 +777,8 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({
                     className="flex items-center justify-between text-xs p-2 rounded bg-slate-950/40 border border-slate-800"
                   >
                     <span className="text-amber-400/90 font-medium">{role}</span>
-                    <span className="text-slate-200 truncate max-w-[150px] font-mono">
-                      {officerMember
-                        ? (officerMember.fullName || '').split(' ')[0] +
-                          ' ' +
-                          (officerMember.fullName || '').split(' ').slice(-1)
-                        : 'Vago / Não escalado'}
+                    <span className="text-slate-200 truncate max-w-[200px] font-medium" title={officerMember?.fullName}>
+                      {officerMember ? officerMember.fullName : 'Vago / Não escalado'}
                     </span>
                   </div>
                 );
