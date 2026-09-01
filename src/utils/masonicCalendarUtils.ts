@@ -91,7 +91,7 @@ export const HISTORICAL_MASONIC_EVENTS: Array<{
   {
     id: 'hist-aniversario-loja',
     title: 'Aniversário da A∴R∴L∴S∴ Fraternidade da Franca Nº 3571',
-    dateMonthDay: '10-05',
+    dateMonthDay: '12-02',
     originalYear: 2003,
     category: 'aniversario_loja',
     description: 'Fundação e sagração da nossa Augusta e Respeitável Loja Simbólica Fraternidade da Franca Nº 3571.',
