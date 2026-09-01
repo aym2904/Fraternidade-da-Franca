@@ -25,6 +25,7 @@ import { isLodgeAdmin, isSystemAdmin, getRoleBadgeLabel } from '../utils/authUti
 import { getMemberPhotoUrl } from '../utils/avatarUtils';
 import { SupabaseConnectionStatus } from '../lib/supabaseService';
 import { MasonicLogo } from './MasonicLogo';
+import { AnimatedMasonicAsciiHeader } from './AnimatedMasonicAsciiHeader';
 
 interface TopHeaderProps {
   activeTab: string;
@@ -108,8 +109,11 @@ export const TopHeader: React.FC<TopHeaderProps> = React.memo(({
   const Icon = currentTabInfo.icon;
 
   return (
-    <header className="bg-slate-900/90 backdrop-blur-md border-b border-amber-900/30 sticky top-0 z-30 h-16">
-      <div className="max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 h-full flex items-center justify-between">
+    <header className="bg-slate-900/95 backdrop-blur-md border-b border-amber-900/40 sticky top-0 z-30 h-16 relative">
+      {/* Animated Monospace ASCII / Sacred Geometry Bracket Matrix Background */}
+      <AnimatedMasonicAsciiHeader intensity="medium" />
+
+      <div className="max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 h-full flex items-center justify-between relative z-10">
         {/* Left: Mobile Menu Trigger, Masonic Logo & Active Tab Breadcrumb */}
         <div className="flex items-center space-x-3 min-w-0">
           {/* Hamburger button (Mobile only drawer trigger) */}

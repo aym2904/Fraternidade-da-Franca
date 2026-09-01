@@ -19,6 +19,7 @@ import { isLodgeAdmin, isSystemAdmin, getRoleBadgeLabel } from '../utils/authUti
 import { getMemberPhotoUrl } from '../utils/avatarUtils';
 import { MasonicLogo } from './MasonicLogo';
 import { SupabaseConnectionStatus } from '../lib/supabaseService';
+import { AnimatedMasonicAsciiHeader } from './AnimatedMasonicAsciiHeader';
 
 interface NavbarProps {
   activeTab: string;
@@ -63,9 +64,12 @@ export const Navbar: React.FC<NavbarProps> = ({
   }, []);
 
   return (
-    <header className="bg-slate-900/90 backdrop-blur-md border-b border-amber-900/40 sticky top-0 z-40">
+    <header className="bg-slate-900/95 backdrop-blur-md border-b border-amber-900/40 sticky top-0 z-40 relative">
+      {/* Animated Monospace ASCII / Sacred Geometry Bracket Matrix Background */}
+      <AnimatedMasonicAsciiHeader intensity="medium" />
+
       {/* Top Bar with Lodge Emblem & Title */}
-      <div className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8">
+      <div className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 relative z-10">
         <div className="flex items-center justify-between h-16">
           {/* Lodge Branding */}
           <div
