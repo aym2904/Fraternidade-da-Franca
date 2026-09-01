@@ -14,13 +14,15 @@ import {
   Sparkles,
   Camera,
   Check,
-  AlertTriangle
+  AlertTriangle,
+  Trash2
 } from 'lucide-react';
 import { Session, Member, AttendanceRecord, VisitorRecord } from '../types/masonic';
 import { calculateSessionStats, canDegreeAttend } from '../utils/masonicUtils';
 import { isLodgeAdmin, isSystemAdmin } from '../utils/authUtils';
 import { getMemberPhotoUrl } from '../utils/avatarUtils';
 import { QrCodeScannerModal } from './QrCodeScannerModal';
+import { SessionVisitorsModal } from './SessionVisitorsModal';
 
 interface LiveSessionPanelProps {
   activeSession: Session | undefined;
@@ -31,6 +33,7 @@ interface LiveSessionPanelProps {
   onRecordAttendance: (memberId: string, method: 'QR_CODE' | 'MANUAL') => void;
   onRemoveAttendance: (memberId: string) => void;
   onAddVisitor: (visitor: VisitorRecord) => void;
+  onDeleteVisitor?: (visitorId: string) => void;
   initialTab?: 'qr_projector' | 'manual_call' | 'visitor_form';
   isVisitorsOnlyTab?: boolean;
 }
@@ -44,6 +47,7 @@ export const LiveSessionPanel: React.FC<LiveSessionPanelProps> = ({
   onRecordAttendance,
   onRemoveAttendance,
   onAddVisitor,
+  onDeleteVisitor,
   initialTab,
   isVisitorsOnlyTab = false,
 }) => {
@@ -53,6 +57,8 @@ export const LiveSessionPanel: React.FC<LiveSessionPanelProps> = ({
   const [searchTerm, setSearchTerm] = useState('');
   const [scannerFeedback, setScannerFeedback] = useState<{ success: boolean; message: string } | null>(null);
   const [isScannerOpen, setIsScannerOpen] = useState(false);
+  const [isVisitorsModalOpen, setIsVisitorsModalOpen] = useState(false);
+  const [deletingVisitorId, setDeletingVisitorId] = useState<string | null>(null);
 
   const isAdmin = isLodgeAdmin(currentUser);
 
@@ -247,9 +253,18 @@ export const LiveSessionPanel: React.FC<LiveSessionPanelProps> = ({
               <p className="text-slate-300">
                 Presentes: <strong className="text-emerald-400 font-mono">{stats.totalPresentMembers}</strong> / {stats.totalEligible}
               </p>
-              <p className="text-slate-300">
-                Visitantes: <strong className="text-blue-400 font-mono">{stats.totalVisitors}</strong>
-              </p>
+              <button
+                type="button"
+                onClick={() => setIsVisitorsModalOpen(true)}
+                className="text-slate-300 hover:text-cyan-300 flex items-center space-x-1.5 transition group cursor-pointer text-left"
+                title="Clique para ver os detalhes dos visitantes da sessão ao vivo"
+              >
+                <span>Visitantes:</span>
+                <strong className="text-blue-400 group-hover:text-cyan-300 group-hover:underline font-mono">
+                  {stats.totalVisitors}
+                </strong>
+                <span className="text-[10px] text-slate-500 group-hover:text-cyan-400">🔍</span>
+              </button>
             </div>
           </div>
         </div>
@@ -833,27 +848,65 @@ export const LiveSessionPanel: React.FC<LiveSessionPanelProps> = ({
               <p className="text-xs text-slate-500 py-8 text-center">Nenhum visitante registrado ainda.</p>
             ) : (
               <div className="space-y-2.5 max-h-[350px] overflow-y-auto pr-1">
-                {currentSessionVisitors.map((vis) => (
-                  <div
-                    key={vis.id}
-                    className="p-3 rounded-xl bg-slate-950 border border-slate-800 text-xs space-y-1"
-                  >
-                    <div className="flex items-center justify-between">
-                      <p className="font-semibold text-slate-200">{vis.fullName}</p>
-                      <span className="bg-blue-950 text-blue-300 border border-blue-800 px-2 py-0.5 rounded text-[10px] font-mono">
-                        {vis.potencia}
-                      </span>
+                {currentSessionVisitors.map((vis) => {
+                  const isDeleting = deletingVisitorId === vis.id;
+
+                  return (
+                    <div
+                      key={vis.id}
+                      className="p-3 rounded-xl bg-slate-950 border border-slate-800 text-xs space-y-1 relative group"
+                    >
+                      <div className="flex items-center justify-between">
+                        <p className="font-semibold text-slate-200">{vis.fullName}</p>
+                        <span className="bg-blue-950 text-blue-300 border border-blue-800 px-2 py-0.5 rounded text-[10px] font-mono">
+                          {vis.potencia}
+                        </span>
+                      </div>
+
+                      <p className="text-[11px] text-slate-400">
+                        Loja: <strong className="text-slate-300">{vis.homeLodge}</strong> • CIM: {vis.cim}
+                      </p>
+
+                      <div className="flex items-center justify-between pt-1">
+                        <p className="text-[10px] text-slate-500">
+                          Grau: {vis.degree} • Registrado às {new Date(vis.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                        </p>
+
+                        {isAdmin && onDeleteVisitor && (
+                          <div>
+                            {isDeleting ? (
+                              <div className="flex items-center space-x-1">
+                                <button
+                                  onClick={() => {
+                                    onDeleteVisitor(vis.id);
+                                    setDeletingVisitorId(null);
+                                  }}
+                                  className="px-1.5 py-0.5 bg-rose-600 hover:bg-rose-500 text-white rounded text-[10px] font-bold"
+                                >
+                                  Excluir
+                                </button>
+                                <button
+                                  onClick={() => setDeletingVisitorId(null)}
+                                  className="px-1.5 py-0.5 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded text-[10px]"
+                                >
+                                  Não
+                                </button>
+                              </div>
+                            ) : (
+                              <button
+                                onClick={() => setDeletingVisitorId(vis.id)}
+                                className="text-slate-500 hover:text-rose-400 p-1 rounded hover:bg-slate-900 transition opacity-80 group-hover:opacity-100"
+                                title="Excluir este visitante"
+                              >
+                                <Trash2 className="w-3.5 h-3.5" />
+                              </button>
+                            )}
+                          </div>
+                        )}
+                      </div>
                     </div>
-
-                    <p className="text-[11px] text-slate-400">
-                      Loja: <strong className="text-slate-300">{vis.homeLodge}</strong> • CIM: {vis.cim}
-                    </p>
-
-                    <p className="text-[10px] text-slate-500">
-                      Grau: {vis.degree} • Registrado às {new Date(vis.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                    </p>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             )}
           </div>
@@ -873,6 +926,16 @@ export const LiveSessionPanel: React.FC<LiveSessionPanelProps> = ({
             message: `Presença de ${currentUser.fullName} registrada com sucesso via QR Code da Reunião!`,
           });
         }}
+      />
+
+      {/* Session Visitors Modal */}
+      <SessionVisitorsModal
+        isOpen={isVisitorsModalOpen}
+        onClose={() => setIsVisitorsModalOpen(false)}
+        session={activeSession || null}
+        visitors={visitors}
+        currentUser={currentUser}
+        onDeleteVisitor={onDeleteVisitor}
       />
     </div>
   );

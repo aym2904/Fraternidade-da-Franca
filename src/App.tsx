@@ -659,6 +659,11 @@ export default function App() {
     supabaseService.insertVisitor(visitor);
   }, []);
 
+  const handleDeleteVisitor = useCallback((visitorId: string) => {
+    setVisitors((prev) => prev.filter((v) => v.id !== visitorId));
+    supabaseService.deleteVisitor(visitorId);
+  }, []);
+
   const handleAddBalaustre = useCallback((balaustre: Balaustre) => {
     setBalaustres((prev) => {
       const exists = prev.some((b) => b.id === balaustre.id);
@@ -821,6 +826,7 @@ export default function App() {
             onToggleActiveSession={handleToggleActiveSession}
             onDeleteSession={handleDeleteSession}
             onClearAllSessions={handleClearAllSessions}
+            onDeleteVisitor={handleDeleteVisitor}
           />
         )}
 
@@ -834,6 +840,7 @@ export default function App() {
             onRecordAttendance={handleRecordAttendance}
             onRemoveAttendance={handleRemoveAttendance}
             onAddVisitor={handleAddVisitor}
+            onDeleteVisitor={handleDeleteVisitor}
             initialTab="qr_projector"
             isVisitorsOnlyTab={false}
           />
@@ -849,6 +856,7 @@ export default function App() {
             onRecordAttendance={handleRecordAttendance}
             onRemoveAttendance={handleRemoveAttendance}
             onAddVisitor={handleAddVisitor}
+            onDeleteVisitor={handleDeleteVisitor}
             initialTab="visitor_form"
             isVisitorsOnlyTab={true}
           />

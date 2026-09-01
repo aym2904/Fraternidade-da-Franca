@@ -19,6 +19,7 @@ import {
 import { Session, SessionType, SessionSubtype, MasonicDegree, Member, LodgeOfficerRole, Balaustre, AttendanceRecord, VisitorRecord } from '../types/masonic';
 import { isLodgeAdmin, isSystemAdmin, canAccessSessionDegree } from '../utils/authUtils';
 import { calculateSessionStats, sortSessionsByCreationDesc } from '../utils/masonicUtils';
+import { SessionVisitorsModal } from './SessionVisitorsModal';
 
 interface SessionManagementProps {
   sessions: Session[];
@@ -32,6 +33,7 @@ interface SessionManagementProps {
   onToggleActiveSession: (sessionId: string) => void;
   onDeleteSession?: (sessionId: string) => void;
   onClearAllSessions?: () => void;
+  onDeleteVisitor?: (visitorId: string) => void;
 }
 
 export function buildDefaultSessionTitle(
@@ -84,6 +86,7 @@ export const SessionManagement: React.FC<SessionManagementProps> = ({
   onToggleActiveSession,
   onDeleteSession,
   onClearAllSessions,
+  onDeleteVisitor,
 }) => {
   const isAdmin = isLodgeAdmin(currentUser);
   const isSysAdmin = isSystemAdmin(currentUser);
@@ -91,6 +94,7 @@ export const SessionManagement: React.FC<SessionManagementProps> = ({
   const [editingSession, setEditingSession] = useState<Session | null>(null);
   const [sessionToDelete, setSessionToDelete] = useState<Session | null>(null);
   const [isClearAllModalOpen, setIsClearAllModalOpen] = useState(false);
+  const [selectedSessionForVisitors, setSelectedSessionForVisitors] = useState<Session | null>(null);
 
   // Filter sessions according to user's degree and administrative permissions, ordered by creation (newest on top)
   const visibleSessions = useMemo(() => {
@@ -393,15 +397,20 @@ export const SessionManagement: React.FC<SessionManagementProps> = ({
                       </span>
                     </span>
 
-                    <span
-                      className="inline-flex items-center space-x-1.5 px-2.5 py-1 rounded-md bg-slate-950/80 border border-slate-800/90 text-[11px] text-slate-300 shadow-sm"
-                      title={`Irmãos Visitantes registrados nesta sessão: ${sessionStats.totalVisitors}`}
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setSelectedSessionForVisitors(s);
+                      }}
+                      className="inline-flex items-center space-x-1.5 px-2.5 py-1 rounded-md bg-slate-950/80 hover:bg-slate-900 border border-slate-800/90 hover:border-cyan-500/60 text-[11px] text-slate-300 hover:text-cyan-200 shadow-sm transition active:scale-95 cursor-pointer group"
+                      title={`Clique para visualizar os detalhes dos visitantes da sessão: ${s.title}`}
                     >
-                      <Building2 className="w-3.5 h-3.5 text-cyan-400/90" />
+                      <Building2 className="w-3.5 h-3.5 text-cyan-400/90 group-hover:scale-110 transition" />
                       <span>
-                        <strong className="text-cyan-300 font-semibold">{sessionStats.totalVisitors}</strong> {sessionStats.totalVisitors === 1 ? 'visitante' : 'visitantes'}
+                        <strong className="text-cyan-300 group-hover:text-cyan-200 font-semibold">{sessionStats.totalVisitors}</strong> {sessionStats.totalVisitors === 1 ? 'visitante' : 'visitantes'}
                       </span>
-                    </span>
+                    </button>
                   </div>
                 </div>
 
@@ -885,6 +894,16 @@ export const SessionManagement: React.FC<SessionManagementProps> = ({
           </div>
         </div>
       )}
+
+      {/* Modal de Detalhes dos Visitantes da Sessão */}
+      <SessionVisitorsModal
+        isOpen={!!selectedSessionForVisitors}
+        onClose={() => setSelectedSessionForVisitors(null)}
+        session={selectedSessionForVisitors}
+        visitors={visitors}
+        currentUser={currentUser}
+        onDeleteVisitor={onDeleteVisitor}
+      />
     </div>
   );
 };
