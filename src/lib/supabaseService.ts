@@ -161,6 +161,13 @@ CREATE POLICY "Allow public access visitors" ON visitors FOR ALL USING (true) WI
 
 DROP POLICY IF EXISTS "Allow public access balaustres" ON balaustres;
 CREATE POLICY "Allow public access balaustres" ON balaustres FOR ALL USING (true) WITH CHECK (true);
+
+-- HABILITAR REALTIME INSTANTÂNEO NO SUPABASE
+ALTER PUBLICATION supabase_realtime ADD TABLE members;
+ALTER PUBLICATION supabase_realtime ADD TABLE sessions;
+ALTER PUBLICATION supabase_realtime ADD TABLE attendances;
+ALTER PUBLICATION supabase_realtime ADD TABLE visitors;
+ALTER PUBLICATION supabase_realtime ADD TABLE balaustres;
 `;
 
 export const supabaseService = {
@@ -250,6 +257,7 @@ export const supabaseService = {
 
   async upsertMember(member: Member): Promise<{ success: boolean; error?: string }> {
     try {
+      this.broadcastLiveDelta('members', 'INSERT', member);
       // 1. Tentar inserção/atualização com todos os campos (incluindo vínculos familiares e datas comemorativas)
       const { error } = await supabase.from('members').upsert(member);
       if (!error) {
@@ -298,6 +306,7 @@ export const supabaseService = {
 
   async deleteMember(id: string): Promise<{ success: boolean; error?: string }> {
     try {
+      this.broadcastLiveDelta('members', 'DELETE', { id });
       const { error } = await supabase.from('members').delete().eq('id', id);
       if (error) {
         if (error.code === 'PGRST205') {
@@ -332,6 +341,7 @@ export const supabaseService = {
 
   async upsertSession(session: Session): Promise<{ success: boolean; error?: string }> {
     try {
+      this.broadcastLiveDelta('sessions', 'INSERT', session);
       const { error } = await supabase.from('sessions').upsert(session);
       if (!error) {
         return { success: true };
@@ -374,6 +384,7 @@ export const supabaseService = {
 
   async deleteSession(id: string): Promise<{ success: boolean; error?: string }> {
     try {
+      this.broadcastLiveDelta('sessions', 'DELETE', { id });
       await supabase.from('attendances').delete().eq('sessionId', id);
       await supabase.from('visitors').delete().eq('sessionId', id);
       await supabase.from('balaustres').delete().eq('sessionId', id);
@@ -427,6 +438,10 @@ export const supabaseService = {
 
   async insertAttendance(attendance: AttendanceRecord): Promise<{ success: boolean; error?: string }> {
     try {
+      // 1. Emit live delta immediately (sub-50ms) to all connected devices and local tabs
+      this.broadcastLiveDelta('attendances', 'INSERT', attendance);
+
+      // 2. Persist to Supabase
       const { error } = await supabase.from('attendances').upsert(attendance);
       if (error) {
         if (error.code === 'PGRST205') {
@@ -445,6 +460,7 @@ export const supabaseService = {
 
   async deleteAttendance(sessionId: string, memberId: string): Promise<{ success: boolean; error?: string }> {
     try {
+      this.broadcastLiveDelta('attendances', 'DELETE', { sessionId, memberId });
       const { error } = await supabase
         .from('attendances')
         .delete()
@@ -483,6 +499,7 @@ export const supabaseService = {
 
   async insertVisitor(visitor: VisitorRecord): Promise<{ success: boolean; error?: string }> {
     try {
+      this.broadcastLiveDelta('visitors', 'INSERT', visitor);
       const { error } = await supabase.from('visitors').upsert(visitor);
       if (error) {
         if (error.code === 'PGRST205') {
@@ -501,6 +518,7 @@ export const supabaseService = {
 
   async deleteVisitor(id: string): Promise<{ success: boolean; error?: string }> {
     try {
+      this.broadcastLiveDelta('visitors', 'DELETE', { id });
       const { error } = await supabase.from('visitors').delete().eq('id', id);
       if (error) {
         if (error.code === 'PGRST205') {
@@ -535,6 +553,7 @@ export const supabaseService = {
 
   async upsertBalaustre(balaustre: Balaustre): Promise<{ success: boolean; error?: string }> {
     try {
+      this.broadcastLiveDelta('balaustres', 'INSERT', balaustre);
       const { error } = await supabase.from('balaustres').upsert(balaustre);
       if (error) {
         if (error.code === 'PGRST205') {
@@ -553,6 +572,7 @@ export const supabaseService = {
 
   async deleteBalaustre(id: string): Promise<{ success: boolean; error?: string }> {
     try {
+      this.broadcastLiveDelta('balaustres', 'DELETE', { id });
       const { error } = await supabase.from('balaustres').delete().eq('id', id);
       if (error) {
         if (error.code === 'PGRST205') {
@@ -569,11 +589,124 @@ export const supabaseService = {
     }
   },
 
-  // OPTIMIZED REALTIME DELTA SUBSCRIBER (Zero extra REST GETs on mutation)
+  // BROADCAST LIVE DELTA VIA SUPABASE AND BROWSER BROADCASTCHANNEL
+  broadcastLiveDelta(entity: 'attendances' | 'visitors' | 'sessions' | 'members' | 'balaustres', eventType: 'INSERT' | 'UPDATE' | 'DELETE', data: any) {
+    try {
+      // 1. Cross-tab instant communication (0ms latency for tabs in same browser)
+      if (typeof window !== 'undefined' && 'BroadcastChannel' in window) {
+        try {
+          const bc = new BroadcastChannel('masonic_live_bus');
+          bc.postMessage({ entity, eventType, data, timestamp: Date.now() });
+          bc.close();
+        } catch {
+          // ignore
+        }
+      }
+
+      // 2. Supabase Realtime channel broadcast (sub-50ms worldwide to all connected devices)
+      const channel = supabase.channel('masonic-granular-deltas');
+      channel.send({
+        type: 'broadcast',
+        event: 'live_delta',
+        payload: { entity, eventType, data, timestamp: Date.now() },
+      }).catch(() => {});
+    } catch {
+      // ignore
+    }
+  },
+
+  // OPTIMIZED REALTIME DELTA SUBSCRIBER (Dual engine: Broadcast + Postgres Changes + Local Bus)
   subscribeToRealtimeDeltas(callbacks: RealtimeDeltasCallbacks) {
     try {
+      // 1. Listen on Cross-tab BroadcastChannel
+      let localBc: BroadcastChannel | null = null;
+      if (typeof window !== 'undefined' && 'BroadcastChannel' in window) {
+        try {
+          localBc = new BroadcastChannel('masonic_live_bus');
+          localBc.onmessage = (event) => {
+            const { entity, eventType, data } = event.data || {};
+            if (!entity || !eventType) return;
+
+            if (entity === 'attendances') {
+              callbacks.onAttendanceChange?.({
+                eventType,
+                new: eventType !== 'DELETE' ? data : null,
+                old: eventType === 'DELETE' ? data : null,
+              });
+            } else if (entity === 'visitors') {
+              callbacks.onVisitorChange?.({
+                eventType,
+                new: eventType !== 'DELETE' ? data : null,
+                old: eventType === 'DELETE' ? data : null,
+              });
+            } else if (entity === 'sessions') {
+              callbacks.onSessionChange?.({
+                eventType,
+                new: eventType !== 'DELETE' ? data : null,
+                old: eventType === 'DELETE' ? data : null,
+              });
+            } else if (entity === 'members') {
+              callbacks.onMemberChange?.({
+                eventType,
+                new: eventType !== 'DELETE' ? data : null,
+                old: eventType === 'DELETE' ? data : null,
+              });
+            } else if (entity === 'balaustres') {
+              callbacks.onBalaustreChange?.({
+                eventType,
+                new: eventType !== 'DELETE' ? data : null,
+                old: eventType === 'DELETE' ? data : null,
+              });
+            }
+          };
+        } catch {
+          // ignore
+        }
+      }
+
+      // 2. Listen on Supabase Realtime channel (both Broadcast & Postgres Changes)
       const channel = supabase
         .channel('masonic-granular-deltas')
+        .on(
+          'broadcast',
+          { event: 'live_delta' },
+          ({ payload }) => {
+            const { entity, eventType, data } = payload || {};
+            if (!entity || !eventType) return;
+
+            if (entity === 'attendances') {
+              callbacks.onAttendanceChange?.({
+                eventType,
+                new: eventType !== 'DELETE' ? data : null,
+                old: eventType === 'DELETE' ? data : null,
+              });
+            } else if (entity === 'visitors') {
+              callbacks.onVisitorChange?.({
+                eventType,
+                new: eventType !== 'DELETE' ? data : null,
+                old: eventType === 'DELETE' ? data : null,
+              });
+            } else if (entity === 'sessions') {
+              callbacks.onSessionChange?.({
+                eventType,
+                new: eventType !== 'DELETE' ? data : null,
+                old: eventType === 'DELETE' ? data : null,
+              });
+            } else if (entity === 'members') {
+              callbacks.onMemberChange?.({
+                eventType,
+                new: eventType !== 'DELETE' ? data : null,
+                old: eventType === 'DELETE' ? data : null,
+              });
+            } else if (entity === 'balaustres') {
+              callbacks.onBalaustreChange?.({
+                eventType,
+                new: eventType !== 'DELETE' ? data : null,
+                old: eventType === 'DELETE' ? data : null,
+              });
+            }
+          }
+        )
         .on(
           'postgres_changes',
           { event: '*', schema: 'public', table: 'attendances' },
@@ -632,6 +765,13 @@ export const supabaseService = {
         .subscribe();
 
       return () => {
+        if (localBc) {
+          try {
+            localBc.close();
+          } catch {
+            // ignore
+          }
+        }
         supabase.removeChannel(channel);
       };
     } catch (e) {
