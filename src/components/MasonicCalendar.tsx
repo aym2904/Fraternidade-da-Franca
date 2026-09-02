@@ -330,7 +330,7 @@ export const MasonicCalendar: React.FC<MasonicCalendarProps> = ({
                 <span className="text-xs text-slate-400">• A∴R∴L∴S∴ Fraternidade da Franca Nº 3571</span>
               </div>
               <h1 className="text-2xl sm:text-3xl font-serif-masonic text-amber-200 font-bold mt-1">
-                Centralizador de Datas & Calendário da Oficina
+                Calendário da Oficina
               </h1>
               <p className="text-sm text-slate-400 mt-1 max-w-2xl">
                 Cálculo automático de idades natalícias, bodas de casamento, marcos maçônicos e envio de

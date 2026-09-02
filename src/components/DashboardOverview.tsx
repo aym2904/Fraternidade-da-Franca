@@ -21,7 +21,8 @@ import {
   UserCog,
   Edit3,
   Paperclip,
-  Download
+  Download,
+  ShoppingBag
 } from 'lucide-react';
 import { Member, Session, AttendanceRecord, VisitorRecord, InactivityAlert } from '../types/masonic';
 import { calculateSessionStats, calculateMemberAttendance } from '../utils/masonicUtils';
@@ -395,6 +396,33 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({
           </div>
         </div>
 
+        {/* Pasta Sales Banner */}
+        <div className="bg-gradient-to-r from-slate-900 via-amber-950/20 to-slate-900 border border-amber-500/30 rounded-2xl p-5 shadow-xl flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div className="flex items-center space-x-3.5">
+            <div className="w-11 h-11 rounded-xl bg-amber-500/10 border border-amber-500/30 flex items-center justify-center text-amber-400 text-xl shrink-0">
+              🍝
+            </div>
+            <div>
+              <div className="flex items-center space-x-2">
+                <span className="text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 rounded bg-amber-500/10 text-amber-400 border border-amber-500/30">
+                  Ação Beneficente
+                </span>
+                <span className="text-xs text-slate-400">Venda de Massas da Oficina</span>
+              </div>
+              <h4 className="text-sm font-bold text-slate-100 mt-0.5">Cadastre suas vendas e emita o QR Code de retirada</h4>
+            </div>
+          </div>
+
+          <button
+            type="button"
+            onClick={() => setActiveTab('venda_massas')}
+            className="px-4 py-2.5 bg-gradient-to-r from-amber-600 to-yellow-600 hover:from-amber-500 hover:to-yellow-500 text-slate-950 font-bold text-xs rounded-xl flex items-center justify-center space-x-1.5 transition shadow-lg shrink-0 cursor-pointer"
+          >
+            <ShoppingBag className="w-4 h-4" />
+            <span>Acessar Módulo de Vendas →</span>
+          </button>
+        </div>
+
         {/* Camera QR Code Scanner Modal */}
         <QrCodeScannerModal
           isOpen={isScannerOpen}
@@ -625,6 +653,33 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({
             </span>
           </div>
         </div>
+      </div>
+
+      {/* Ação Beneficente Quick Action Card */}
+      <div className="bg-gradient-to-r from-slate-900 via-amber-950/20 to-slate-900 border border-amber-500/30 rounded-2xl p-5 shadow-xl flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div className="flex items-center space-x-3.5">
+          <div className="w-11 h-11 rounded-xl bg-amber-500/10 border border-amber-500/30 flex items-center justify-center text-amber-400 text-xl shrink-0">
+            🍝
+          </div>
+          <div>
+            <div className="flex items-center space-x-2">
+              <span className="text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 rounded bg-amber-500/10 text-amber-400 border border-amber-500/30">
+                Ação Beneficente
+              </span>
+              <span className="text-xs text-slate-400">Venda de Massas da Oficina</span>
+            </div>
+            <h4 className="text-sm font-bold text-slate-100 mt-0.5">Módulo de Vendas, Relatórios Gerais e Validação de QR Code na Entrega</h4>
+          </div>
+        </div>
+
+        <button
+          type="button"
+          onClick={() => setActiveTab('venda_massas')}
+          className="px-4 py-2.5 bg-gradient-to-r from-amber-600 to-yellow-600 hover:from-amber-500 hover:to-yellow-500 text-slate-950 font-bold text-xs rounded-xl flex items-center justify-center space-x-1.5 transition shadow-lg shrink-0 cursor-pointer"
+        >
+          <ShoppingBag className="w-4 h-4" />
+          <span>Acessar Ação Beneficente →</span>
+        </button>
       </div>
 
       {/* Active Session Activity & Administration Section */}

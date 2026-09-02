@@ -18,7 +18,8 @@ import {
   LogOut,
   User,
   ExternalLink,
-  Sparkles
+  Sparkles,
+  ShoppingBag
 } from 'lucide-react';
 import { Member } from '../types/masonic';
 import { isLodgeAdmin, isSystemAdmin, getRoleBadgeLabel } from '../utils/authUtils';
@@ -190,6 +191,15 @@ export const Sidebar: React.FC<SidebarProps> = React.memo(({
       visible: true,
       badge: null,
       badgeColor: '',
+    },
+    {
+      id: 'venda_massas',
+      label: 'Ação Beneficente',
+      shortLabel: 'Ação Beneficente',
+      icon: ShoppingBag,
+      visible: true,
+      badge: 'QR Code',
+      badgeColor: 'bg-amber-500/20 text-amber-300 border border-amber-500/40',
     },
   ];
 

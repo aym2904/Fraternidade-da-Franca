@@ -202,3 +202,45 @@ export interface InactivityAlert {
   missedSessionIds: string[];
   lastAttendedDate?: string;
 }
+
+// -------------------------------------------------------------
+// MÓDULO DE VENDA DE MASSAS
+// -------------------------------------------------------------
+export type PastaFlavor = 'Quatro Queijos' | 'Presunto e Muçarela';
+
+export type PastaSaleStatus = 'Aguardando Retirada' | 'Retirada Realizada' | 'Cancelada';
+
+export interface PastaFlavorItem {
+  flavor: PastaFlavor;
+  quantity: number;
+}
+
+export interface PastaSale {
+  id: string; // Identificador único (UUID)
+  saleCode: string; // Número amigável da venda (ex: "MASSA-8F3A" ou "8F3A7D91")
+  qrCodeToken: string; // Token UUID exclusivo para validação criptografada do QR Code (ex: "8F3A7D91-29D8-4A11-98F2")
+  customerName: string; // Nome do cliente
+  phone: string; // Telefone / WhatsApp do cliente
+  flavor: string; // Resumo textual dos sabores (ex: "Quatro Queijos (2), Presunto e Muçarela (1)")
+  items: PastaFlavorItem[]; // Detalhamento dos sabores e quantidades
+  totalQuantity: number; // Quantidade total de massas
+  unitPrice: number; // Valor unitário (ex: R$ 35,00)
+  totalAmount: number; // Valor total em R$ (unitPrice * totalQuantity)
+  paymentStatus?: 'Pago' | 'Pendente' | 'Cortesia';
+  paymentMethod?: 'Pix' | 'Dinheiro' | 'Cartão' | 'Outro';
+  
+  // Usuário / Irmão que realizou a venda
+  sellerId: string; // ID do irmão vendedor (usuario_id)
+  sellerName: string; // Nome completo do irmão vendedor
+  sellerCim?: string; // CIM do irmão vendedor
+  
+  // Datas e Status
+  createdAt: string; // Data e hora da venda (ISO string)
+  status: PastaSaleStatus; // Status da venda ("Aguardando Retirada" | "Retirada Realizada" | "Cancelada")
+  
+  // Dados da Retirada / Entrega
+  pickupDate?: string; // Data e hora em que a retirada foi realizada
+  pickupOperatorId?: string; // ID do irmão que realizou a entrega no dia
+  pickupOperatorName?: string; // Nome do irmão que validou o QR Code e entregou a massa
+  notes?: string;
+}

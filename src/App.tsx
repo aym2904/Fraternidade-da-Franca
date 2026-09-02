@@ -18,6 +18,7 @@ import { LiveSessionPanel } from './components/LiveSessionPanel';
 import { BalaustreIntegration } from './components/BalaustreIntegration';
 import { FrequencyReports } from './components/FrequencyReports';
 import { MasonicCalendar } from './components/MasonicCalendar';
+import { PastaSalesModule } from './components/pasta/PastaSalesModule';
 import { LoginScreen } from './components/LoginScreen';
 import { PublicMemberRegistrationModal } from './components/PublicMemberRegistrationModal';
 import { SupabaseStatusModal } from './components/SupabaseStatusModal';
@@ -893,6 +894,13 @@ export default function App() {
             attendances={attendances}
             inactivityAlerts={inactivityAlerts}
             currentUser={currentUser}
+          />
+        )}
+
+        {activeTab === 'venda_massas' && (
+          <PastaSalesModule
+            currentUser={currentUser}
+            members={members}
           />
         )}
       </main>

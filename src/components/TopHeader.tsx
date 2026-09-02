@@ -18,7 +18,8 @@ import {
   QrCode,
   Camera,
   UserCheck,
-  UserCog
+  UserCog,
+  ShoppingBag
 } from 'lucide-react';
 import { Member } from '../types/masonic';
 import { isLodgeAdmin, isSystemAdmin, getRoleBadgeLabel } from '../utils/authUtils';
@@ -100,6 +101,8 @@ export const TopHeader: React.FC<TopHeaderProps> = React.memo(({
         return { label: isAdmin ? 'Inteligência, Estatísticas & Alertas' : 'Minha Frequência Litúrgica', icon: ShieldAlert, category: 'Análise' };
       case 'calendario':
         return { label: 'Calendário Maçônico', icon: CalendarDays, category: 'Agenda & Presenças' };
+      case 'venda_massas':
+        return { label: 'Ação Beneficente', icon: ShoppingBag, category: 'Venda de Massas' };
       default:
         return { label: 'Painel Geral', icon: BarChart3, category: 'Sistema' };
     }

@@ -1,5 +1,5 @@
 import { supabase, SUPABASE_URL } from './supabase';
-import { Member, Session, AttendanceRecord, VisitorRecord, Balaustre } from '../types/masonic';
+import { Member, Session, AttendanceRecord, VisitorRecord, Balaustre, PastaSale } from '../types/masonic';
 
 export interface RealtimeChangePayload<T = any> {
   eventType: 'INSERT' | 'UPDATE' | 'DELETE' | string;
@@ -132,12 +132,38 @@ CREATE TABLE IF NOT EXISTS balaustres (
   "createdAt" TEXT
 );
 
+-- 6. TABELA DE VENDA DE MASSAS (AÇÃO BENEFICENTE COM QR CODE)
+CREATE TABLE IF NOT EXISTS pasta_sales (
+  id TEXT PRIMARY KEY,
+  "saleCode" TEXT NOT NULL,
+  "qrCodeToken" TEXT NOT NULL UNIQUE,
+  "customerName" TEXT NOT NULL,
+  phone TEXT NOT NULL,
+  flavor TEXT NOT NULL,
+  items JSONB,
+  "totalQuantity" INT NOT NULL DEFAULT 1,
+  "unitPrice" NUMERIC DEFAULT 25.0,
+  "totalAmount" NUMERIC DEFAULT 25.0,
+  "paymentStatus" TEXT DEFAULT 'Pago',
+  "paymentMethod" TEXT DEFAULT 'Pix',
+  "sellerId" TEXT NOT NULL,
+  "sellerName" TEXT NOT NULL,
+  "sellerCim" TEXT,
+  "createdAt" TEXT NOT NULL,
+  status TEXT NOT NULL DEFAULT 'Aguardando Retirada',
+  "pickupDate" TEXT,
+  "pickupOperatorId" TEXT,
+  "pickupOperatorName" TEXT,
+  notes TEXT
+);
+
 -- HABILITAR ROW LEVEL SECURITY (RLS) E LIBERAR ACESSO PÚBLICO (ANON)
 ALTER TABLE members ENABLE ROW LEVEL SECURITY;
 ALTER TABLE sessions ENABLE ROW LEVEL SECURITY;
 ALTER TABLE attendances ENABLE ROW LEVEL SECURITY;
 ALTER TABLE visitors ENABLE ROW LEVEL SECURITY;
 ALTER TABLE balaustres ENABLE ROW LEVEL SECURITY;
+ALTER TABLE pasta_sales ENABLE ROW LEVEL SECURITY;
 
 -- DADOS DE PERMISSÃO COMPLETA PARA OS PAPÉIS DO SUPABASE (anon, authenticated e service_role)
 GRANT USAGE ON SCHEMA public TO anon, authenticated, service_role;
@@ -162,18 +188,22 @@ CREATE POLICY "Allow public access visitors" ON visitors FOR ALL USING (true) WI
 DROP POLICY IF EXISTS "Allow public access balaustres" ON balaustres;
 CREATE POLICY "Allow public access balaustres" ON balaustres FOR ALL USING (true) WITH CHECK (true);
 
+DROP POLICY IF EXISTS "Allow public access pasta_sales" ON pasta_sales;
+CREATE POLICY "Allow public access pasta_sales" ON pasta_sales FOR ALL USING (true) WITH CHECK (true);
+
 -- HABILITAR REALTIME INSTANTÂNEO NO SUPABASE
 ALTER PUBLICATION supabase_realtime ADD TABLE members;
 ALTER PUBLICATION supabase_realtime ADD TABLE sessions;
 ALTER PUBLICATION supabase_realtime ADD TABLE attendances;
 ALTER PUBLICATION supabase_realtime ADD TABLE visitors;
 ALTER PUBLICATION supabase_realtime ADD TABLE balaustres;
+ALTER PUBLICATION supabase_realtime ADD TABLE pasta_sales;
 `;
 
 export const supabaseService = {
   // CONNECTION DIAGNOSTIC
   async checkConnection(): Promise<SupabaseConnectionStatus> {
-    const targetTables = ['members', 'sessions', 'attendances', 'visitors', 'balaustres'];
+    const targetTables = ['members', 'sessions', 'attendances', 'visitors', 'balaustres', 'pasta_sales'];
     const tableStatuses: SupabaseTableStatus[] = [];
     let isApiConnected = false;
     let globalError: string | undefined = undefined;
@@ -806,6 +836,7 @@ export const supabaseService = {
     attendances: AttendanceRecord[];
     visitors: VisitorRecord[];
     balaustres: Balaustre[];
+    pastaSales?: PastaSale[];
   }): Promise<{ success: boolean; errors: string[] }> {
     const errors: string[] = [];
 
@@ -844,6 +875,40 @@ export const supabaseService = {
     for (const b of payload.balaustres) {
       const res = await this.upsertBalaustre(b);
       if (!res.success && res.error) errors.push(`balaustre ${b.number}: ${res.error}`);
+    }
+    if (payload.pastaSales && payload.pastaSales.length > 0) {
+      for (const p of payload.pastaSales) {
+        try {
+          const { error } = await supabase.from('pasta_sales').upsert({
+            id: p.id,
+            saleCode: p.saleCode,
+            qrCodeToken: p.qrCodeToken,
+            customerName: p.customerName,
+            phone: p.phone,
+            flavor: p.flavor,
+            items: p.items,
+            totalQuantity: p.totalQuantity,
+            unitPrice: p.unitPrice,
+            totalAmount: p.totalAmount,
+            paymentStatus: p.paymentStatus || 'Pago',
+            paymentMethod: p.paymentMethod || 'Pix',
+            sellerId: p.sellerId,
+            sellerName: p.sellerName,
+            sellerCim: p.sellerCim || '',
+            createdAt: p.createdAt,
+            status: p.status,
+            pickupDate: p.pickupDate || null,
+            pickupOperatorId: p.pickupOperatorId || null,
+            pickupOperatorName: p.pickupOperatorName || null,
+            notes: p.notes || '',
+          });
+          if (error) {
+            errors.push(`venda massa ${p.saleCode}: ${error.message}`);
+          }
+        } catch (e: any) {
+          errors.push(`venda massa ${p.saleCode}: ${e?.message || 'erro'}`);
+        }
+      }
     }
 
     return {
