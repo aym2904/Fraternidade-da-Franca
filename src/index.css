@@ -28,3 +28,35 @@
 ::-webkit-scrollbar-thumb:hover {
   background: #334155;
 }
+
+/* HTML5 QR Code Scanner Responsive Camera Fit */
+#pasta-qr-reader-container,
+#qr-reader-container {
+  width: 100% !important;
+  max-width: 100% !important;
+  border: none !important;
+  background: transparent !important;
+}
+
+#pasta-qr-reader-container video,
+#qr-reader-container video {
+  width: 100% !important;
+  height: 100% !important;
+  min-height: 260px !important;
+  max-height: 360px !important;
+  object-fit: cover !important;
+  border-radius: 0.875rem !important;
+  display: block !important;
+  margin: 0 auto !important;
+}
+
+#pasta-qr-reader-container canvas,
+#qr-reader-container canvas {
+  display: none !important;
+}
+
+#pasta-qr-reader-container img[alt="Info icon"],
+#qr-reader-container img[alt="Info icon"] {
+  display: none !important;
+}
+

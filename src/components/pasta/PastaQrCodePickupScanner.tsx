@@ -17,7 +17,10 @@ import {
   ShoppingBag,
   Clock,
   ArrowRight,
-  Volume2
+  Upload,
+  KeyRound,
+  QrCode,
+  Lock
 } from 'lucide-react';
 import { Member, PastaSale } from '../../types/masonic';
 import { formatCurrencyBRL } from '../../utils/pastaUtils';
@@ -33,10 +36,10 @@ export const PastaQrCodePickupScanner: React.FC<PastaQrCodePickupScannerProps> =
   sales,
   onConfirmPickup,
 }) => {
-  // Scanner State
+  // Scanner State & Mode
+  const [scanMode, setScanMode] = useState<'camera' | 'token'>('camera');
   const [isCameraActive, setIsCameraActive] = useState(false);
   const [cameraError, setCameraError] = useState<string | null>(null);
-  const [scannedCode, setScannedCode] = useState<string>('');
   const [manualInput, setManualInput] = useState<string>('');
   
   // Located Sale & Validation result
@@ -70,8 +73,6 @@ export const PastaQrCodePickupScanner: React.FC<PastaQrCodePickupScannerProps> =
     const clean = code.trim().toUpperCase();
     if (!clean) return;
 
-    setScannedCode(clean);
-
     // Extract UUID if full URL was scanned
     let tokenToMatch = clean;
     if (clean.includes('/RETIRADA/')) {
@@ -94,9 +95,9 @@ export const PastaQrCodePickupScanner: React.FC<PastaQrCodePickupScannerProps> =
       if (found.status === 'Retirada Realizada') {
         setValidationStatus('already_picked');
         setFeedbackMessage(
-          `⚠️ QR Code inválido ou retirada já realizada anteriormente em ${
+          `⚠️ Atenção: A retirada desta venda já foi efetuada em ${
             found.pickupDate ? new Date(found.pickupDate).toLocaleString('pt-BR') : 'data anterior'
-          } por ${found.pickupOperatorName || 'Irmão responsável'}.`
+          } pelo Ir. ${found.pickupOperatorName || 'Irmão responsável'}.`
         );
         playBeep(false);
       } else if (found.status === 'Cancelada') {
@@ -105,13 +106,13 @@ export const PastaQrCodePickupScanner: React.FC<PastaQrCodePickupScannerProps> =
         playBeep(false);
       } else {
         setValidationStatus('valid');
-        setFeedbackMessage('✓ QR Code válido! Venda aguardando retirada.');
+        setFeedbackMessage('✓ QR Code validado! Pedido pronto para retirada.');
         playBeep(true);
       }
     } else {
       setSelectedSale(null);
       setValidationStatus('invalid');
-      setFeedbackMessage('QR Code inválido ou retirada já realizada.');
+      setFeedbackMessage('Nenhuma venda encontrada para o código ou QR Code lido.');
       playBeep(false);
     }
   };
@@ -122,22 +123,25 @@ export const PastaQrCodePickupScanner: React.FC<PastaQrCodePickupScannerProps> =
     try {
       if (html5QrCodeRef.current) {
         try {
-          await html5QrCodeRef.current.stop();
+          if (html5QrCodeRef.current.isScanning) {
+            await html5QrCodeRef.current.stop();
+          }
         } catch {}
       }
 
       const html5QrCode = new Html5Qrcode(scannerContainerId);
       html5QrCodeRef.current = html5QrCode;
 
+      const config = {
+        fps: 12,
+        qrbox: { width: 220, height: 220 },
+      };
+
       await html5QrCode.start(
         { facingMode: 'environment' },
-        {
-          fps: 10,
-          qrbox: { width: 250, height: 250 },
-        },
+        config,
         (decodedText) => {
           locateSale(decodedText);
-          // Auto stop camera on scan for confirmation
           stopScanner();
         },
         () => {}
@@ -145,7 +149,7 @@ export const PastaQrCodePickupScanner: React.FC<PastaQrCodePickupScannerProps> =
       setIsCameraActive(true);
     } catch (err: any) {
       console.warn('Camera start error:', err);
-      setCameraError('Não foi possível acessar a câmera. Você pode digitar o código ou token manualmente.');
+      setCameraError('Não foi possível acessar a câmera do seu dispositivo. Você pode digitar o código ou enviar uma foto.');
       setIsCameraActive(false);
     }
   };
@@ -164,13 +168,45 @@ export const PastaQrCodePickupScanner: React.FC<PastaQrCodePickupScannerProps> =
     setIsCameraActive(false);
   };
 
+  // Switch mode handling
+  useEffect(() => {
+    if (scanMode === 'camera') {
+      const timer = setTimeout(() => {
+        startScanner();
+      }, 250);
+      return () => {
+        clearTimeout(timer);
+        stopScanner();
+      };
+    } else {
+      stopScanner();
+    }
+  }, [scanMode]);
+
   useEffect(() => {
     return () => {
-      if (html5QrCodeRef.current && html5QrCodeRef.current.isScanning) {
-        html5QrCodeRef.current.stop().catch(() => {});
-      }
+      stopScanner();
     };
   }, []);
+
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    try {
+      let scanner = html5QrCodeRef.current;
+      if (!scanner) {
+        scanner = new Html5Qrcode(scannerContainerId);
+        html5QrCodeRef.current = scanner;
+      }
+      const decodedText = await scanner.scanFile(file, true);
+      locateSale(decodedText);
+    } catch (err) {
+      setValidationStatus('invalid');
+      setFeedbackMessage('Nenhum QR Code legível foi detectado na foto. Tente digitar o código manualmente.');
+      playBeep(false);
+    }
+  };
 
   const handleManualSearch = (e: React.FormEvent) => {
     e.preventDefault();
@@ -202,9 +238,11 @@ export const PastaQrCodePickupScanner: React.FC<PastaQrCodePickupScannerProps> =
     setSelectedSale(null);
     setValidationStatus('idle');
     setFeedbackMessage('');
-    setScannedCode('');
     setManualInput('');
     setPickupNotes('');
+    if (scanMode === 'camera') {
+      startScanner();
+    }
   };
 
   return (
@@ -213,7 +251,7 @@ export const PastaQrCodePickupScanner: React.FC<PastaQrCodePickupScannerProps> =
       <div className="bg-slate-900 border border-amber-900/30 rounded-2xl p-5 shadow-xl flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div className="flex items-center space-x-3.5">
           <div className="w-12 h-12 rounded-2xl bg-amber-500/10 border border-amber-500/30 flex items-center justify-center text-amber-400 shrink-0 shadow">
-            <Camera className="w-6 h-6" />
+            <QrCode className="w-6 h-6" />
           </div>
           <div>
             <h2 className="text-lg font-bold text-slate-100 font-serif-masonic flex items-center space-x-2">
@@ -228,34 +266,50 @@ export const PastaQrCodePickupScanner: React.FC<PastaQrCodePickupScannerProps> =
           </div>
         </div>
 
-        {/* Action Toggle Camera */}
+        {/* Mode Selector Tabs (Camera vs Manual Token Input) */}
         <div className="flex items-center space-x-2">
-          {!isCameraActive ? (
+          <div className="bg-slate-950 p-1 rounded-xl border border-slate-800 flex items-center text-xs font-semibold">
             <button
               type="button"
-              onClick={startScanner}
-              className="w-full sm:w-auto px-5 py-2.5 bg-gradient-to-r from-amber-600 to-yellow-600 hover:from-amber-500 hover:to-yellow-500 text-slate-950 font-bold text-xs rounded-xl flex items-center justify-center space-x-2 shadow-lg transition active:scale-95 cursor-pointer"
+              onClick={() => {
+                setScanMode('camera');
+                setValidationStatus('idle');
+                setSelectedSale(null);
+              }}
+              className={`py-1.5 px-3 rounded-lg flex items-center space-x-1.5 transition ${
+                scanMode === 'camera'
+                  ? 'bg-amber-500 text-slate-950 font-bold shadow-md'
+                  : 'text-slate-400 hover:text-slate-200'
+              }`}
             >
               <Camera className="w-4 h-4" />
-              <span>Abrir Câmera do Celular</span>
+              <span>Câmera</span>
             </button>
-          ) : (
+
             <button
               type="button"
-              onClick={stopScanner}
-              className="w-full sm:w-auto px-5 py-2.5 bg-rose-600 hover:bg-rose-500 text-white font-bold text-xs rounded-xl flex items-center justify-center space-x-2 shadow-lg transition active:scale-95 cursor-pointer"
+              onClick={() => {
+                setScanMode('token');
+                setValidationStatus('idle');
+                setSelectedSale(null);
+              }}
+              className={`py-1.5 px-3 rounded-lg flex items-center space-x-1.5 transition ${
+                scanMode === 'token'
+                  ? 'bg-amber-500 text-slate-950 font-bold shadow-md'
+                  : 'text-slate-400 hover:text-slate-200'
+              }`}
             >
-              <CameraOff className="w-4 h-4" />
-              <span>Fechar Câmera</span>
+              <KeyRound className="w-4 h-4" />
+              <span>Digitar Código</span>
             </button>
-          )}
+          </div>
 
           {validationStatus !== 'idle' && (
             <button
               type="button"
               onClick={handleReset}
               className="p-2.5 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-xl transition border border-slate-700"
-              title="Nova Consulta"
+              title="Nova Leitura"
             >
               <RefreshCw className="w-4 h-4" />
             </button>
@@ -263,73 +317,159 @@ export const PastaQrCodePickupScanner: React.FC<PastaQrCodePickupScannerProps> =
         </div>
       </div>
 
-      {/* Grid: Camera / Scanner Box & Manual Search */}
+      {/* Grid: Camera / Scanner Box & Located Sale Card */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-        {/* Left Col: Camera Scanner Container */}
+        {/* Left Col: Scanner Container */}
         <div className="lg:col-span-6 space-y-4">
           <div className="bg-slate-900 border border-slate-800 rounded-2xl p-5 shadow-xl space-y-4">
-            <h3 className="text-xs font-semibold uppercase tracking-wider text-amber-400 flex items-center space-x-2">
-              <Camera className="w-4 h-4" />
-              <span>Câmera de Leitura</span>
-            </h3>
+            <div className="flex items-center justify-between">
+              <h3 className="text-xs font-semibold uppercase tracking-wider text-amber-400 flex items-center space-x-2">
+                {scanMode === 'camera' ? <Camera className="w-4 h-4" /> : <KeyRound className="w-4 h-4" />}
+                <span>{scanMode === 'camera' ? 'Câmera de Leitura do QR Code' : 'Inserção por Código ou Telefone'}</span>
+              </h3>
 
-            {/* Camera Viewport */}
-            <div className="relative bg-slate-950 rounded-2xl border-2 border-dashed border-slate-800 overflow-hidden min-h-[280px] flex items-center justify-center">
-              <div id={scannerContainerId} className="w-full max-w-sm rounded-xl overflow-hidden" />
-
-              {!isCameraActive && (
-                <div className="text-center p-6 space-y-3">
-                  <div className="w-16 h-16 rounded-full bg-slate-900 border border-slate-700 flex items-center justify-center mx-auto text-slate-400">
-                    <Camera className="w-8 h-8 text-amber-400/70" />
-                  </div>
-                  <div>
-                    <p className="font-semibold text-slate-200 text-sm">Câmera Desligada</p>
-                    <p className="text-xs text-slate-500 max-w-xs mx-auto mt-1">
-                      Clique no botão acima para ativar a câmera do dispositivo e apontar para o QR Code do cliente.
-                    </p>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={startScanner}
-                    className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-amber-300 rounded-xl text-xs font-bold border border-slate-700 transition"
-                  >
-                    Ativar Câmera Agora
-                  </button>
-                </div>
+              {scanMode === 'camera' && (
+                <button
+                  type="button"
+                  onClick={isCameraActive ? stopScanner : startScanner}
+                  className="text-xs font-semibold text-slate-400 hover:text-amber-300 transition flex items-center space-x-1"
+                >
+                  {isCameraActive ? (
+                    <>
+                      <CameraOff className="w-3.5 h-3.5 text-rose-400" />
+                      <span>Desativar</span>
+                    </>
+                  ) : (
+                    <>
+                      <Camera className="w-3.5 h-3.5 text-emerald-400" />
+                      <span>Reativar Câmera</span>
+                    </>
+                  )}
+                </button>
               )}
             </div>
 
-            {cameraError && (
-              <div className="p-3 bg-amber-950/40 border border-amber-800/60 rounded-xl text-xs text-amber-200">
-                {cameraError}
+            {/* CAMERA MODE VIEWPORT */}
+            {scanMode === 'camera' && (
+              <div className="space-y-3">
+                <div className="relative bg-slate-950 border-2 border-dashed border-amber-500/40 rounded-2xl overflow-hidden min-h-[260px] max-h-[360px] flex flex-col items-center justify-center shadow-inner">
+                  {/* html5-qrcode video container */}
+                  <div id={scannerContainerId} className="w-full h-full min-h-[260px] flex items-center justify-center" />
+
+                  {/* Laser & Visual Target Guides Overlay */}
+                  {isCameraActive && (
+                    <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
+                      <div className="relative w-52 h-52 sm:w-60 sm:h-60 border border-amber-400/30 rounded-2xl flex items-center justify-center">
+                        {/* 4 Glowing Corners */}
+                        <div className="absolute top-0 left-0 w-6 h-6 border-t-4 border-l-4 border-amber-400 rounded-tl-xl -mt-1 -ml-1" />
+                        <div className="absolute top-0 right-0 w-6 h-6 border-t-4 border-r-4 border-amber-400 rounded-tr-xl -mt-1 -mr-1" />
+                        <div className="absolute bottom-0 left-0 w-6 h-6 border-b-4 border-l-4 border-amber-400 rounded-bl-xl -mb-1 -ml-1" />
+                        <div className="absolute bottom-0 right-0 w-6 h-6 border-b-4 border-r-4 border-amber-400 rounded-br-xl -mb-1 -mr-1" />
+                        
+                        {/* Scanning Laser Line */}
+                        <div className="absolute inset-x-2 h-0.5 bg-gradient-to-r from-transparent via-amber-400 to-transparent shadow-[0_0_8px_#f59e0b] animate-pulse" />
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Inactive Camera Fallback */}
+                  {!isCameraActive && !cameraError && (
+                    <div className="text-center p-6 space-y-3">
+                      <div className="w-14 h-14 rounded-full bg-slate-900 border border-slate-700 flex items-center justify-center mx-auto text-slate-400">
+                        <Camera className="w-7 h-7 text-amber-400/70" />
+                      </div>
+                      <div>
+                        <p className="font-semibold text-slate-200 text-sm">Câmera Pausada</p>
+                        <p className="text-xs text-slate-400 max-w-xs mx-auto mt-1">
+                          Aponte para o QR Code gerado no comprovante do cliente.
+                        </p>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={startScanner}
+                        className="px-4 py-2 bg-amber-500 hover:bg-amber-400 text-slate-950 rounded-xl text-xs font-bold transition shadow cursor-pointer"
+                      >
+                        Ativar Câmera
+                      </button>
+                    </div>
+                  )}
+
+                  {/* Camera Error View */}
+                  {cameraError && (
+                    <div className="absolute inset-0 bg-slate-950/95 p-6 flex flex-col items-center justify-center text-center space-y-3 z-10">
+                      <AlertTriangle className="w-8 h-8 text-amber-400" />
+                      <p className="text-xs text-slate-300 leading-relaxed max-w-xs">{cameraError}</p>
+                      <button
+                        type="button"
+                        onClick={() => setScanMode('token')}
+                        className="bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold text-xs px-4 py-2 rounded-xl transition"
+                      >
+                        Digitar Código Manualmente
+                      </button>
+                    </div>
+                  )}
+                </div>
+
+                {/* Upload Photo Option */}
+                <div className="flex items-center justify-between text-xs text-slate-400 pt-1">
+                  <label className="cursor-pointer hover:text-amber-300 flex items-center space-x-1.5 transition">
+                    <Upload className="w-4 h-4 text-amber-400" />
+                    <span>Enviar foto do QR Code</span>
+                    <input
+                      type="file"
+                      accept="image/*"
+                      onChange={handleFileUpload}
+                      className="hidden"
+                    />
+                  </label>
+
+                  <button
+                    type="button"
+                    onClick={() => setScanMode('token')}
+                    className="hover:text-amber-300 text-slate-400 transition"
+                  >
+                    Usar teclado →
+                  </button>
+                </div>
               </div>
             )}
 
-            {/* Fallback: Digitação / Busca Manual */}
-            <form onSubmit={handleManualSearch} className="pt-2 border-t border-slate-800 space-y-2">
-              <label className="block text-xs font-medium text-slate-400">
-                Ou digite o Código da Venda / Token / Telefone:
-              </label>
-              <div className="flex items-center space-x-2">
-                <div className="relative flex-1">
-                  <input
-                    type="text"
-                    placeholder="Ex: MASSA-8F3A ou 8F3A7D91..."
-                    value={manualInput}
-                    onChange={(e) => setManualInput(e.target.value)}
-                    className="w-full bg-slate-950 border border-slate-700 rounded-xl px-3.5 py-2.5 text-slate-100 text-xs font-mono focus:outline-none focus:border-amber-500 transition pl-9"
-                  />
-                  <Search className="w-4 h-4 text-slate-500 absolute left-3 top-3" />
+            {/* TOKEN / MANUAL INPUT MODE */}
+            {scanMode === 'token' && (
+              <form onSubmit={handleManualSearch} className="space-y-4">
+                <div className="bg-slate-950 border border-slate-800 rounded-xl p-4 space-y-3">
+                  <label className="block text-xs font-semibold text-amber-300 flex items-center space-x-1.5">
+                    <KeyRound className="w-4 h-4 text-amber-400" />
+                    <span>Código da Venda, Token ou Telefone do Cliente:</span>
+                  </label>
+                  
+                  <p className="text-[11px] text-slate-400 leading-relaxed">
+                    Insira o código do pedido (ex: <span className="font-mono text-amber-400">MASSA-8F3A</span>) ou o número de telefone cadastrado na venda.
+                  </p>
+
+                  <div className="relative">
+                    <input
+                      type="text"
+                      value={manualInput}
+                      onChange={(e) => setManualInput(e.target.value)}
+                      placeholder="Ex: MASSA-8F3A ou 16999998888..."
+                      className="w-full bg-slate-900 border border-slate-700 rounded-xl px-3.5 py-3 text-xs text-slate-100 font-mono focus:outline-none focus:border-amber-500 pl-9"
+                      autoFocus
+                    />
+                    <Search className="w-4 h-4 text-slate-500 absolute left-3 top-3.5" />
+                  </div>
                 </div>
+
                 <button
                   type="submit"
-                  className="px-4 py-2.5 bg-slate-800 hover:bg-slate-700 text-amber-300 rounded-xl text-xs font-bold border border-slate-700 transition flex items-center space-x-1 shrink-0"
+                  disabled={!manualInput.trim()}
+                  className="w-full py-3 bg-gradient-to-r from-amber-600 to-yellow-600 hover:from-amber-500 hover:to-yellow-500 text-slate-950 font-bold rounded-xl text-xs transition disabled:opacity-50 shadow-lg cursor-pointer flex items-center justify-center space-x-2"
                 >
-                  <span>Buscar</span>
-                  <ArrowRight className="w-3.5 h-3.5" />
+                  <Search className="w-4 h-4" />
+                  <span>Localizar Venda no Sistema</span>
                 </button>
-              </div>
-            </form>
+              </form>
+            )}
           </div>
         </div>
 
@@ -423,7 +563,7 @@ export const PastaQrCodePickupScanner: React.FC<PastaQrCodePickupScannerProps> =
                   </div>
 
                   <div className="p-2.5 bg-slate-950/60 rounded-xl border border-slate-800">
-                    <span className="text-[10px] text-slate-400 block">Irmão Responsável</span>
+                    <span className="text-[10px] text-slate-400 block">Irmão Vendedor</span>
                     <span className="font-semibold text-slate-200 text-xs truncate block" title={selectedSale.sellerName}>
                       {selectedSale.sellerName}
                     </span>
@@ -468,7 +608,7 @@ export const PastaQrCodePickupScanner: React.FC<PastaQrCodePickupScannerProps> =
                   <button
                     type="button"
                     onClick={handleReset}
-                    className="w-full py-2.5 bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-bold rounded-xl transition"
+                    className="w-full py-2.5 bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-bold rounded-xl transition cursor-pointer"
                   >
                     Escanear Próximo QR Code
                   </button>
