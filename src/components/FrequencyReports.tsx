@@ -333,7 +333,7 @@ export const FrequencyReports: React.FC<FrequencyReportsProps> = ({
               <span>Alertas Regimentais de Inassiduidade (3 Faltas Consecutivas)</span>
             </h3>
             <p className="text-xs text-slate-400 mt-1">
-              Conforme o Regulamento Geral da Ordem, Irmãos com 3 faltas consecutivas recebem aviso fraterno da administração para acompanhamento.
+              Irmãos com 3 faltas consecutivas recebem aviso fraterno da administração para acompanhamento.
             </p>
           </div>
 
