@@ -574,7 +574,9 @@ export const supabaseService = {
         return null;
       }
       if (!data || data.length === 0) return null;
-      return (data as Balaustre[]) || [];
+      return (data as Balaustre[]).filter(
+        (b) => b.sessionId !== 'SYSTEM_PASTA_SALES' && b.id !== 'system-pasta-sales-sync-v1'
+      ) || [];
     } catch (err) {
       console.warn('[Supabase] getBalaustres exception:', err);
       return null;

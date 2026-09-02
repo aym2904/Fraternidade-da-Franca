@@ -44,17 +44,17 @@ export const PastaSalesList: React.FC<PastaSalesListProps> = ({
   // Filters State
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('ALL');
-  const [sellerFilter, setSellerFilter] = useState<string>(isAdmin ? 'ALL' : currentUser.id);
+  const [sellerFilter, setSellerFilter] = useState<string>('ALL');
   const [dateFilter, setDateFilter] = useState('');
   const [viewScope, setViewScope] = useState<'MY_SALES' | 'ALL_SALES'>(
-    isAdmin ? 'ALL_SALES' : 'MY_SALES'
+    isAdmin ? 'ALL_SALES' : 'ALL_SALES'
   );
 
   // Filter Logic
   const filteredSales = useMemo(() => {
     return sales.filter((sale) => {
-      // Access Control: regular brothers only see their own sales unless they are admins and selected ALL_SALES
-      if (!isAdmin || viewScope === 'MY_SALES') {
+      // Access Scope Filter
+      if (viewScope === 'MY_SALES') {
         if (sale.sellerId !== currentUser.id) return false;
       } else if (sellerFilter !== 'ALL' && sale.sellerId !== sellerFilter) {
         return false;
@@ -107,7 +107,7 @@ export const PastaSalesList: React.FC<PastaSalesListProps> = ({
           </div>
           <div>
             <h2 className="text-lg font-bold text-slate-100 font-serif-masonic">
-              {isAdmin && viewScope === 'ALL_SALES' ? 'Todas as Vendas da Oficina' : 'Minhas Vendas de Massas'}
+              {viewScope === 'ALL_SALES' ? 'Todas as Vendas da Oficina' : 'Minhas Vendas de Massas'}
             </h2>
             <p className="text-xs text-slate-400">
               {filteredSales.length} {filteredSales.length === 1 ? 'pedido cadastrado' : 'pedidos cadastrados'} • Total de{' '}
@@ -116,34 +116,32 @@ export const PastaSalesList: React.FC<PastaSalesListProps> = ({
           </div>
         </div>
 
-        {/* Admin Scope Toggle */}
+        {/* Scope Toggle & Actions */}
         <div className="flex items-center space-x-2">
-          {isAdmin && (
-            <div className="bg-slate-950 p-1 rounded-xl border border-slate-800 flex items-center">
-              <button
-                type="button"
-                onClick={() => setViewScope('ALL_SALES')}
-                className={`px-3 py-1.5 rounded-lg text-xs font-bold transition ${
-                  viewScope === 'ALL_SALES'
-                    ? 'bg-amber-600 text-slate-950 shadow'
-                    : 'text-slate-400 hover:text-slate-200'
-                }`}
-              >
-                Todas as Vendas
-              </button>
-              <button
-                type="button"
-                onClick={() => setViewScope('MY_SALES')}
-                className={`px-3 py-1.5 rounded-lg text-xs font-bold transition ${
-                  viewScope === 'MY_SALES'
-                    ? 'bg-amber-600 text-slate-950 shadow'
-                    : 'text-slate-400 hover:text-slate-200'
-                }`}
-              >
-                Apenas Minhas
-              </button>
-            </div>
-          )}
+          <div className="bg-slate-950 p-1 rounded-xl border border-slate-800 flex items-center">
+            <button
+              type="button"
+              onClick={() => setViewScope('ALL_SALES')}
+              className={`px-3 py-1.5 rounded-lg text-xs font-bold transition ${
+                viewScope === 'ALL_SALES'
+                  ? 'bg-amber-600 text-slate-950 shadow'
+                  : 'text-slate-400 hover:text-slate-200'
+              }`}
+            >
+              Todas as Vendas
+            </button>
+            <button
+              type="button"
+              onClick={() => setViewScope('MY_SALES')}
+              className={`px-3 py-1.5 rounded-lg text-xs font-bold transition ${
+                viewScope === 'MY_SALES'
+                  ? 'bg-amber-600 text-slate-950 shadow'
+                  : 'text-slate-400 hover:text-slate-200'
+              }`}
+            >
+              Minhas Vendas
+            </button>
+          </div>
 
           <button
             type="button"

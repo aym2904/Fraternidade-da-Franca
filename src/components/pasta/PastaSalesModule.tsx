@@ -258,6 +258,22 @@ export const PastaSalesModule: React.FC<PastaSalesModuleProps> = ({
             <BarChart3 className="w-4 h-4" />
             <span>{isAdmin ? 'Relatórios & Auditoria' : 'Meu Relatório'}</span>
           </button>
+
+          {/* Sync Button */}
+          <button
+            type="button"
+            onClick={async () => {
+              setIsLoading(true);
+              await pastaSalesService.syncPendingSales();
+              await loadSales();
+              showToast('Dados sincronizados com a nuvem!');
+            }}
+            className="ml-auto px-3 py-2 rounded-xl text-xs font-medium bg-slate-950/80 hover:bg-slate-800 text-slate-300 hover:text-white border border-slate-800 flex items-center space-x-1.5 transition cursor-pointer"
+            title="Atualizar dados da nuvem em tempo real"
+          >
+            <RefreshCw className={`w-3.5 h-3.5 text-emerald-400 ${isLoading ? 'animate-spin' : ''}`} />
+            <span className="hidden sm:inline">Sincronizado</span>
+          </button>
         </div>
       </div>
 

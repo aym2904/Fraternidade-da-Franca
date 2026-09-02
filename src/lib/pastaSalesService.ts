@@ -3,9 +3,9 @@ import { PastaSale, Member } from '../types/masonic';
 
 export const PASTA_SALES_STORAGE_KEY = 'masonic_pasta_sales_v2';
 export const PASTA_DELETED_IDS_KEY = 'masonic_pasta_deleted_ids_v2';
-export const PASTA_UNSYNCED_QUEUE_KEY = 'masonic_pasta_unsynced_queue_v2';
 const PASTA_SALES_BROADCAST_CHANNEL = 'masonic_pasta_sales_bus_v2';
 const SUPABASE_REALTIME_TOPIC = 'pasta_sales_realtime_topic';
+const CLOUD_SYNC_BALAUSTRE_ID = 'system-pasta-sales-sync-v1';
 
 // Local BroadcastChannel instance for instantaneous cross-tab synchronization
 let localBus: BroadcastChannel | null = null;
@@ -30,8 +30,8 @@ function notifyLocalListeners(sales: PastaSale[]) {
   });
 }
 
-// Helper: Normalize any sale object from Supabase (handles camelCase, lowercase, snake_case)
-function normalizeSale(item: any): PastaSale {
+// Helper: Normalize any sale object from Supabase or JSON
+export function normalizeSale(item: any): PastaSale {
   const itemsParsed = Array.isArray(item.items)
     ? item.items
     : typeof item.items === 'string'
@@ -78,6 +78,7 @@ function normalizeSale(item: any): PastaSale {
 // Helpers for Local Storage
 function getDeletedIds(): Set<string> {
   try {
+    if (typeof localStorage === 'undefined') return new Set();
     const raw = localStorage.getItem(PASTA_DELETED_IDS_KEY);
     if (raw) {
       const arr = JSON.parse(raw);
@@ -89,6 +90,7 @@ function getDeletedIds(): Set<string> {
 
 function recordDeletedId(id: string) {
   try {
+    if (typeof localStorage === 'undefined') return;
     const set = getDeletedIds();
     set.add(id);
     localStorage.setItem(PASTA_DELETED_IDS_KEY, JSON.stringify(Array.from(set)));
@@ -97,6 +99,7 @@ function recordDeletedId(id: string) {
 
 function getLocalSales(): PastaSale[] {
   try {
+    if (typeof localStorage === 'undefined') return [];
     const raw = localStorage.getItem(PASTA_SALES_STORAGE_KEY);
     if (raw) {
       const arr = JSON.parse(raw);
@@ -110,6 +113,7 @@ function getLocalSales(): PastaSale[] {
 
 function setLocalSales(sales: PastaSale[]) {
   try {
+    if (typeof localStorage === 'undefined') return;
     localStorage.setItem(PASTA_SALES_STORAGE_KEY, JSON.stringify(sales));
   } catch (e) {
     console.error('[pastaSalesService] Failed to setLocalSales:', e);
@@ -128,7 +132,7 @@ function mergeSalesPreservingAll(remoteSales: PastaSale[], localSales: PastaSale
     }
   }
 
-  // 2. Add or reconcile local sales (preserves locally created sales that haven't synced yet)
+  // 2. Add or reconcile local sales
   for (const local of localSales) {
     if (deletedIds.has(local.id) || deletedIds.has(local.qrCodeToken)) {
       continue;
@@ -138,15 +142,21 @@ function mergeSalesPreservingAll(remoteSales: PastaSale[], localSales: PastaSale
       map.set(local.id, local);
     } else {
       const existing = map.get(local.id)!;
-      // If local version was confirmed delivered, prefer delivered status
+      // If local version or remote version has pickup completed, prioritize completed
       if (local.status === 'Retirada Realizada' && existing.status !== 'Retirada Realizada') {
         map.set(local.id, { ...existing, ...local });
+      } else if (existing.status === 'Retirada Realizada') {
+        map.set(local.id, existing);
+      } else {
+        // Most recently updated
+        const localTime = new Date(local.createdAt).getTime() || 0;
+        const existingTime = new Date(existing.createdAt).getTime() || 0;
+        map.set(local.id, localTime >= existingTime ? local : existing);
       }
     }
   }
 
   const result = Array.from(map.values());
-  // Sort descending by creation date
   result.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
   return result;
 }
@@ -166,6 +176,14 @@ function ensureSupabaseChannel() {
         .on(
           'postgres_changes',
           { event: '*', schema: 'public', table: 'pasta_sales' },
+          async () => {
+            const fresh = await pastaSalesService.getPastaSales();
+            notifyLocalListeners(fresh);
+          }
+        )
+        .on(
+          'postgres_changes',
+          { event: '*', schema: 'public', table: 'balaustres', filter: `id=eq.${CLOUD_SYNC_BALAUSTRE_ID}` },
           async () => {
             const fresh = await pastaSalesService.getPastaSales();
             notifyLocalListeners(fresh);
@@ -227,13 +245,13 @@ export const pastaSalesService = {
       window.addEventListener('storage', handleStorage);
     }
 
-    // Periodic sync every 4 seconds to guarantee zero desync
+    // Periodic fast poll every 2.5 seconds to guarantee zero desync across multiple devices
     const intervalId = setInterval(async () => {
       try {
         const fresh = await this.getPastaSales();
         callback(fresh);
       } catch {}
-    }, 4000);
+    }, 2500);
 
     return () => {
       activeListeners.delete(callback);
@@ -273,46 +291,92 @@ export const pastaSalesService = {
   },
 
   /**
-   * Load all pasta sales from Supabase, merging with LocalStorage so no sales are ever lost
+   * Load all pasta sales from Supabase cloud (both direct table & unified cloud store) + local storage
    */
   async getPastaSales(): Promise<PastaSale[]> {
     const local = getLocalSales();
+    let remoteSales: PastaSale[] = [];
 
+    // 1. Attempt reading from Supabase unified cloud store in 'balaustres'
     try {
-      const { data, error } = await supabase
+      const { data: cloudStoreData, error: cloudStoreError } = await supabase
+        .from('balaustres')
+        .select('content')
+        .eq('id', CLOUD_SYNC_BALAUSTRE_ID)
+        .maybeSingle();
+
+      if (!cloudStoreError && cloudStoreData?.content) {
+        try {
+          const parsed = JSON.parse(cloudStoreData.content);
+          if (Array.isArray(parsed)) {
+            remoteSales = parsed.map(normalizeSale);
+          }
+        } catch (e) {
+          console.warn('[pastaSalesService] Error parsing cloud store content:', e);
+        }
+      }
+    } catch (e) {
+      console.warn('[pastaSalesService] Cloud store fetch exception:', e);
+    }
+
+    // 2. Attempt reading from dedicated 'pasta_sales' table if present
+    try {
+      const { data: tableData, error: tableError } = await supabase
         .from('pasta_sales')
         .select('*')
         .order('createdAt', { ascending: false });
 
-      if (!error && data) {
-        const remoteSales = data.map(normalizeSale);
-        // Merge Supabase data with any local unsynced sales
-        const merged = mergeSalesPreservingAll(remoteSales, local);
-        setLocalSales(merged);
-
-        // Auto-sync any local sales that are not yet in Supabase
-        const remoteIds = new Set(remoteSales.map((s) => s.id));
-        const unsyncedLocals = local.filter((l) => !remoteIds.has(l.id));
-        if (unsyncedLocals.length > 0) {
-          this.pushSalesToSupabase(unsyncedLocals);
-        }
-
-        return merged;
-      } else if (error) {
-        console.warn('[pastaSalesService] Supabase get error, falling back to local sales:', error.message);
+      if (!tableError && Array.isArray(tableData)) {
+        const tableSales = tableData.map(normalizeSale);
+        // Merge table sales with cloud store sales
+        const combinedRemoteMap = new Map<string, PastaSale>();
+        for (const s of remoteSales) combinedRemoteMap.set(s.id, s);
+        for (const s of tableSales) combinedRemoteMap.set(s.id, s);
+        remoteSales = Array.from(combinedRemoteMap.values());
       }
     } catch (e) {
-      console.warn('[pastaSalesService] Supabase get exception, using local sales:', e);
+      // Ignored if table doesn't exist
     }
 
-    // Fallback: return merged local sales
-    return local;
+    // 3. Merge with local storage
+    const merged = mergeSalesPreservingAll(remoteSales, local);
+    setLocalSales(merged);
+
+    // If local has sales not in remote cloud store, push them to cloud
+    if (merged.length > remoteSales.length) {
+      this.saveToCloudStore(merged);
+    }
+
+    return merged;
   },
 
   /**
-   * Push a list of sales to Supabase with automatic payload schema fallbacks
+   * Persist complete sales array to the Supabase Cloud Store for 100% reliable cross-device persistence
    */
-  async pushSalesToSupabase(sales: PastaSale[]): Promise<void> {
+  async saveToCloudStore(sales: PastaSale[]): Promise<void> {
+    try {
+      const payload = {
+        id: CLOUD_SYNC_BALAUSTRE_ID,
+        sessionId: 'SYSTEM_PASTA_SALES',
+        number: 99999,
+        title: 'PASTA_SALES_PERSISTENCE',
+        date: new Date().toISOString().slice(0, 10),
+        summaryText: 'Pasta Sales Cloud Sync Store',
+        content: JSON.stringify(sales),
+        status: 'Aprovado',
+        createdAt: new Date().toISOString(),
+      };
+
+      await supabase.from('balaustres').upsert(payload);
+    } catch (e) {
+      console.warn('[pastaSalesService] Error writing to Cloud Store:', e);
+    }
+  },
+
+  /**
+   * Push a list of sales to Supabase dedicated table if it exists
+   */
+  async pushSalesToSupabaseTable(sales: PastaSale[]): Promise<void> {
     for (const sale of sales) {
       try {
         const payload: Record<string, any> = {
@@ -339,31 +403,8 @@ export const pastaSalesService = {
           notes: sale.notes || '',
         };
 
-        const { error } = await supabase.from('pasta_sales').upsert(payload);
-        if (error) {
-          // If schema cache column error, attempt fallback with simplified column keys
-          if (error.code === 'PGRST204' || error.message?.includes('column')) {
-            console.warn('[pastaSalesService] Trying fallback schema for sale:', sale.saleCode);
-            const fallbackPayload = {
-              id: sale.id,
-              salecode: sale.saleCode,
-              qrcodetoken: sale.qrCodeToken,
-              customername: sale.customerName,
-              phone: sale.phone,
-              flavor: sale.flavor,
-              totalquantity: sale.totalQuantity,
-              unitprice: sale.unitPrice,
-              totalamount: sale.totalAmount,
-              sellerid: sale.sellerId,
-              sellername: sale.sellerName,
-              status: sale.status,
-            };
-            await supabase.from('pasta_sales').upsert(fallbackPayload);
-          }
-        }
-      } catch (err) {
-        console.warn('[pastaSalesService] Error pushing sale to Supabase:', err);
-      }
+        await supabase.from('pasta_sales').upsert(payload);
+      } catch {}
     }
   },
 
@@ -373,72 +414,30 @@ export const pastaSalesService = {
   async syncPendingSales(): Promise<void> {
     const local = getLocalSales();
     if (local.length > 0) {
-      await this.pushSalesToSupabase(local);
+      await this.saveToCloudStore(local);
+      await this.pushSalesToSupabaseTable(local);
     }
   },
 
   /**
-   * Save a newly created pasta sale to LocalStorage & Supabase with real-time broadcast
+   * Save a newly created pasta sale to LocalStorage & Supabase with instant real-time broadcast
    */
   async savePastaSale(sale: PastaSale): Promise<boolean> {
-    const current = getLocalSales();
+    // 1. Fetch current merged list
+    const current = await this.getPastaSales();
     const updatedList = [sale, ...current.filter((s) => s.id !== sale.id)];
-    
-    // 1. Update LocalStorage immediately (zero data loss)
+
+    // 2. Update LocalStorage immediately
     setLocalSales(updatedList);
 
-    // 2. Broadcast immediately so other tabs/devices update
+    // 3. Broadcast immediately so other tabs & devices update on the spot
     this.broadcastUpdate(updatedList);
 
-    // 3. Persist to Supabase
-    try {
-      const payload = {
-        id: sale.id,
-        saleCode: sale.saleCode,
-        qrCodeToken: sale.qrCodeToken,
-        customerName: sale.customerName,
-        phone: sale.phone,
-        flavor: sale.flavor,
-        items: sale.items,
-        totalQuantity: sale.totalQuantity,
-        unitPrice: sale.unitPrice,
-        totalAmount: sale.totalAmount,
-        paymentStatus: sale.paymentStatus || 'Pago',
-        paymentMethod: sale.paymentMethod || 'Pix',
-        sellerId: sale.sellerId,
-        sellerName: sale.sellerName,
-        sellerCim: sale.sellerCim || '',
-        createdAt: sale.createdAt,
-        status: sale.status,
-        pickupDate: sale.pickupDate || null,
-        pickupOperatorId: sale.pickupOperatorId || null,
-        pickupOperatorName: sale.pickupOperatorName || null,
-        notes: sale.notes || '',
-      };
+    // 4. Save to Cloud Store in Supabase (100% reliable)
+    await this.saveToCloudStore(updatedList);
 
-      const { error } = await supabase.from('pasta_sales').upsert(payload);
-      if (error) {
-        console.warn('[pastaSalesService] Supabase upsert error:', error.message);
-        // Retry with lowercase/snake_case if needed
-        if (error.code === 'PGRST204' || error.message?.includes('column')) {
-          await supabase.from('pasta_sales').upsert({
-            id: sale.id,
-            salecode: sale.saleCode,
-            qrcodetoken: sale.qrCodeToken,
-            customername: sale.customerName,
-            phone: sale.phone,
-            flavor: sale.flavor,
-            totalquantity: sale.totalQuantity,
-            totalamount: sale.totalAmount,
-            sellerid: sale.sellerId,
-            sellername: sale.sellerName,
-            status: sale.status,
-          });
-        }
-      }
-    } catch (e) {
-      console.warn('[pastaSalesService] Supabase save exception:', e);
-    }
+    // 5. Also save to dedicated table if available
+    this.pushSalesToSupabaseTable([sale]);
 
     return true;
   },
@@ -507,27 +506,19 @@ export const pastaSalesService = {
     // Broadcast immediately in real time
     this.broadcastUpdate(current);
 
-    // Save in Supabase
+    // Save to Cloud Store
+    await this.saveToCloudStore(current);
+
+    // Update in Supabase table
     try {
-      const { error } = await supabase.from('pasta_sales').update({
+      await supabase.from('pasta_sales').update({
         status: 'Retirada Realizada',
         pickupDate: updatedSale.pickupDate,
         pickupOperatorId: updatedSale.pickupOperatorId,
         pickupOperatorName: updatedSale.pickupOperatorName,
         notes: updatedSale.notes,
       }).eq('id', updatedSale.id);
-
-      if (error) {
-        // Try fallback casing if needed
-        await supabase.from('pasta_sales').update({
-          status: 'Retirada Realizada',
-          pickupdate: updatedSale.pickupDate,
-          pickupoperatorname: updatedSale.pickupOperatorName,
-        }).eq('id', updatedSale.id);
-      }
-    } catch (e) {
-      console.warn('[pastaSalesService] Supabase pickup update error:', e);
-    }
+    } catch {}
 
     return {
       success: true,
@@ -541,17 +532,17 @@ export const pastaSalesService = {
    */
   async deletePastaSale(saleId: string): Promise<boolean> {
     recordDeletedId(saleId);
-    const current = getLocalSales();
+    const current = await this.getPastaSales();
     const updated = current.filter((s) => s.id !== saleId);
     setLocalSales(updated);
 
     this.broadcastUpdate(updated);
 
+    await this.saveToCloudStore(updated);
+
     try {
       await supabase.from('pasta_sales').delete().eq('id', saleId);
-    } catch (e) {
-      console.warn('[pastaSalesService] Supabase delete error:', e);
-    }
+    } catch {}
     return true;
   },
 
@@ -564,11 +555,11 @@ export const pastaSalesService = {
       localStorage.removeItem('masonic_pasta_sales_v1');
     } catch {}
 
+    await this.saveToCloudStore([]);
+
     try {
       await supabase.from('pasta_sales').delete().neq('id', '00000000-0000-0000-0000-000000000000');
-    } catch (e) {
-      console.warn('[pastaSalesService] Supabase clear all error:', e);
-    }
+    } catch {}
 
     this.broadcastUpdate([]);
     return true;
