@@ -19,6 +19,7 @@ import {
 import { Member, PastaSale } from '../../types/masonic';
 import { isLodgeAdmin } from '../../utils/authUtils';
 import { formatCurrencyBRL, sendSaleWhatsApp, exportSalesToCSV } from '../../utils/pastaUtils';
+import { sortMembersAlphabetically } from '../../utils/masonicUtils';
 
 interface PastaSalesListProps {
   currentUser: Member;
@@ -224,7 +225,7 @@ export const PastaSalesList: React.FC<PastaSalesListProps> = ({
                 className="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-slate-200 text-xs focus:outline-none focus:border-amber-500 transition"
               >
                 <option value="ALL">Todos os Irmãos</option>
-                {members.map((m) => (
+                {sortMembersAlphabetically(members).map((m) => (
                   <option key={m.id} value={m.id}>
                     {m.fullName}
                   </option>

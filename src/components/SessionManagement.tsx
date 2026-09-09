@@ -18,7 +18,7 @@ import {
 } from 'lucide-react';
 import { Session, SessionType, SessionSubtype, MasonicDegree, Member, LodgeOfficerRole, Balaustre, AttendanceRecord, VisitorRecord } from '../types/masonic';
 import { isLodgeAdmin, isSystemAdmin, canAccessSessionDegree } from '../utils/authUtils';
-import { calculateSessionStats, sortSessionsByCreationDesc } from '../utils/masonicUtils';
+import { calculateSessionStats, sortSessionsByCreationDesc, sortMembersAlphabetically } from '../utils/masonicUtils';
 import { SessionVisitorsModal } from './SessionVisitorsModal';
 
 interface SessionManagementProps {
@@ -684,13 +684,13 @@ export const SessionManagement: React.FC<SessionManagementProps> = ({
                           className="w-full bg-slate-900 border border-slate-800 rounded p-1.5 text-slate-200 text-xs focus:outline-none focus:border-amber-500"
                         >
                           <option value="">(Vago / Não atribuído)</option>
-                          {members
-                            .filter((m) => m.degree === 'Mestre' && m.status !== 'Placet')
-                            .map((m) => (
-                              <option key={m.id} value={m.id}>
-                                {m.fullName}
-                              </option>
-                            ))}
+                          {sortMembersAlphabetically(
+                            members.filter((m) => m.degree === 'Mestre' && m.status !== 'Placet')
+                          ).map((m) => (
+                            <option key={m.id} value={m.id}>
+                              {m.fullName}
+                            </option>
+                          ))}
                         </select>
                       </div>
                     ))}

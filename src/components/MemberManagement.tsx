@@ -22,7 +22,7 @@ import {
   KeyRound
 } from 'lucide-react';
 import { Member, MasonicDegree, MemberStatus, LodgeOfficerRole, Session, AttendanceRecord } from '../types/masonic';
-import { calculateMemberAttendance } from '../utils/masonicUtils';
+import { calculateMemberAttendance, sortMembersAlphabetically, getAvailableSessionYears, filterSessionsByYear } from '../utils/masonicUtils';
 import { generateAttendanceCertificatePDF } from '../utils/pdfGenerator';
 import { DEFAULT_NEUTRAL_AVATAR, getMemberPhotoUrl } from '../utils/avatarUtils';
 import { compressImageFile } from '../utils/imageUtils';
@@ -53,6 +53,8 @@ export const MemberManagement: React.FC<MemberManagementProps> = ({
   currentUser,
 }) => {
   const isSysAdmin = isSystemAdmin(currentUser);
+  const currentCalendarYear = new Date().getFullYear();
+  const [selectedYear, setSelectedYear] = useState<number | 'ALL'>(currentCalendarYear);
   const [searchTerm, setSearchTerm] = useState('');
   const [degreeFilter, setDegreeFilter] = useState<string>('ALL');
   const [statusFilter, setStatusFilter] = useState<string>('ALL');
@@ -64,6 +66,9 @@ export const MemberManagement: React.FC<MemberManagementProps> = ({
   const [showPasswordInModal, setShowPasswordInModal] = useState(false);
   const [memberToDelete, setMemberToDelete] = useState<Member | null>(null);
   const [formError, setFormError] = useState<string | null>(null);
+
+  // Available recorded years
+  const availableYears = useMemo(() => getAvailableSessionYears(sessions), [sessions]);
 
   // Form state
   const [formData, setFormData] = useState<Partial<Member>>({
@@ -80,7 +85,7 @@ export const MemberManagement: React.FC<MemberManagementProps> = ({
 
   const filteredMembers = useMemo(() => {
     const query = searchTerm.trim().toLowerCase();
-    return members.filter((m) => {
+    const filtered = members.filter((m) => {
       const matchesSearch =
         !query ||
         m.fullName.toLowerCase().includes(query) ||
@@ -90,15 +95,16 @@ export const MemberManagement: React.FC<MemberManagementProps> = ({
       const matchesStatus = statusFilter === 'ALL' || m.status === statusFilter;
       return matchesSearch && matchesDegree && matchesStatus;
     });
+    return sortMembersAlphabetically(filtered);
   }, [members, searchTerm, degreeFilter, statusFilter]);
 
   const memberAttendanceMap = useMemo(() => {
     const map = new Map<string, ReturnType<typeof calculateMemberAttendance>>();
     for (const m of members) {
-      map.set(m.id, calculateMemberAttendance(m, sessions, attendances));
+      map.set(m.id, calculateMemberAttendance(m, sessions, attendances, selectedYear));
     }
     return map;
-  }, [members, sessions, attendances]);
+  }, [members, sessions, attendances, selectedYear]);
 
   const handleOpenAddModal = () => {
     setEditingMember(null);
@@ -562,11 +568,47 @@ export const MemberManagement: React.FC<MemberManagementProps> = ({
 
             {/* Attendance & Frequency Summary */}
             {(() => {
-              const attStats = calculateMemberAttendance(selectedMember, sessions, attendances);
+              const attStats = calculateMemberAttendance(selectedMember, sessions, attendances, selectedYear);
+              const yearFilteredSessions = filterSessionsByYear(sessions, selectedYear);
               const memberAttendances = attendances.filter((a) => a.memberId === selectedMember.id);
 
               return (
                 <div className="py-5 space-y-5">
+                  {/* Year Switcher inside Member Modal */}
+                  <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 bg-slate-950/80 border border-slate-800 rounded-xl p-3 text-xs">
+                    <div className="text-slate-300">
+                      Exercício Maçônico: <strong className="text-amber-300 font-mono">{selectedYear === 'ALL' ? 'Histórico Consolidado' : selectedYear}</strong>
+                    </div>
+
+                    <div className="flex items-center gap-1.5 flex-wrap">
+                      {availableYears.map((yr) => (
+                        <button
+                          key={yr}
+                          type="button"
+                          onClick={() => setSelectedYear(yr)}
+                          className={`px-2.5 py-1 rounded-lg text-xs font-mono font-bold transition ${
+                            selectedYear === yr
+                              ? 'bg-amber-500 text-slate-950'
+                              : 'bg-slate-900 text-slate-400 hover:text-slate-200 border border-slate-800'
+                          }`}
+                        >
+                          {yr} {yr === currentCalendarYear ? '(Atual)' : ''}
+                        </button>
+                      ))}
+                      <button
+                        type="button"
+                        onClick={() => setSelectedYear('ALL')}
+                        className={`px-2.5 py-1 rounded-lg text-xs font-bold transition ${
+                          selectedYear === 'ALL'
+                            ? 'bg-amber-500 text-slate-950'
+                            : 'bg-slate-900 text-slate-400 hover:text-slate-200 border border-slate-800'
+                        }`}
+                      >
+                        Todos os Anos
+                      </button>
+                    </div>
+                  </div>
+
                   <div className="bg-slate-950 border border-slate-800 rounded-xl p-4 grid grid-cols-3 gap-4 text-center">
                     <div>
                       <span className="text-[10px] text-slate-400 uppercase font-semibold">Sessões Elegíveis</span>
@@ -584,12 +626,17 @@ export const MemberManagement: React.FC<MemberManagementProps> = ({
 
                   {/* Attendance History */}
                   <div>
-                    <h4 className="text-xs font-semibold text-slate-300 uppercase tracking-wider mb-3">
-                      Histórico de Chamadas do Irmão
-                    </h4>
+                    <div className="flex items-center justify-between mb-3">
+                      <h4 className="text-xs font-semibold text-slate-300 uppercase tracking-wider">
+                        Histórico de Chamadas do Irmão ({selectedYear === 'ALL' ? 'Todos os Anos' : selectedYear})
+                      </h4>
+                      <span className="text-[10px] text-slate-400 font-mono">
+                        {yearFilteredSessions.length} sessões registradas
+                      </span>
+                    </div>
 
                     <div className="max-h-48 overflow-y-auto space-y-2 pr-1">
-                      {sessions.map((s) => {
+                      {yearFilteredSessions.map((s) => {
                         const attended = memberAttendances.find((a) => a.sessionId === s.id);
 
                         return (
@@ -606,11 +653,11 @@ export const MemberManagement: React.FC<MemberManagementProps> = ({
 
                             <div>
                               {attended ? (
-                                <span className="bg-emerald-950 text-emerald-400 border border-emerald-800 px-2 py-0.5 rounded text-[10px] font-mono">
+                                <span className="bg-emerald-950 text-emerald-400 border border-emerald-800 px-2 py-0.5 rounded text-[10px] font-mono font-semibold">
                                   PRESENTE ({attended.method})
                                 </span>
                               ) : (
-                                <span className="bg-rose-950 text-rose-400 border border-rose-800 px-2 py-0.5 rounded text-[10px] font-mono">
+                                <span className="bg-rose-950 text-rose-400 border border-rose-800 px-2 py-0.5 rounded text-[10px] font-mono font-semibold">
                                   AUSENTE
                                 </span>
                               )}

@@ -14,6 +14,7 @@ import {
 } from 'lucide-react';
 import { Member, PastaSale } from '../../types/masonic';
 import { isLodgeAdmin } from '../../utils/authUtils';
+import { sortMembersAlphabetically } from '../../utils/masonicUtils';
 import {
   formatCurrencyBRL,
   exportSalesToPDF,
@@ -162,7 +163,7 @@ export const PastaReportsView: React.FC<PastaReportsViewProps> = ({
               className="w-full bg-slate-950 border border-slate-700 rounded-xl px-3.5 py-2 text-slate-200 text-xs focus:outline-none focus:border-amber-500 transition"
             >
               <option value="ALL">Todos os Irmãos (Consolidado)</option>
-              {members.map((m) => (
+              {sortMembersAlphabetically(members).map((m) => (
                 <option key={m.id} value={m.id}>
                   {m.fullName}
                 </option>

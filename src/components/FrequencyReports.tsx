@@ -26,7 +26,10 @@ import {
   calculateMemberAttendance,
   detectInactivityAlerts,
   getMemberAttendanceBreakdown,
-  MemberAttendanceItem
+  MemberAttendanceItem,
+  sortMembersAlphabetically,
+  getAvailableSessionYears,
+  filterSessionsByYear
 } from '../utils/masonicUtils';
 import { isLodgeAdmin } from '../utils/authUtils';
 import { getMemberPhotoUrl } from '../utils/avatarUtils';
@@ -47,41 +50,60 @@ export const FrequencyReports: React.FC<FrequencyReportsProps> = ({
   inactivityAlerts = [],
   currentUser,
 }) => {
+  const currentCalendarYear = new Date().getFullYear();
   const isAdmin = isLodgeAdmin(currentUser);
   const [activeTab, setActiveTab] = useState<'assiduidade' | 'alertas'>('assiduidade');
+  const [selectedYear, setSelectedYear] = useState<number | 'ALL'>(currentCalendarYear);
   const [searchTerm, setSearchTerm] = useState('');
   const [notifiedMembers, setNotifiedMembers] = useState<Record<string, boolean>>({});
   const [selectedMemberForDetail, setSelectedMemberForDetail] = useState<Member | null>(null);
   const [detailFilter, setDetailFilter] = useState<'all' | 'missed' | 'attended'>('all');
   const [copiedSummary, setCopiedSummary] = useState(false);
 
+  // Available recorded years
+  const availableYears = useMemo(() => getAvailableSessionYears(sessions), [sessions]);
+
+  // Sessions in selected year
+  const yearSessions = useMemo(() => {
+    return filterSessionsByYear(sessions, selectedYear);
+  }, [sessions, selectedYear]);
+
+  // Inactivity alerts evaluated specifically for the active/selected year
+  const yearInactivityAlerts = useMemo(() => {
+    return detectInactivityAlerts(members, sessions, attendances, selectedYear);
+  }, [members, sessions, attendances, selectedYear]);
+
   // Non-admin users see ONLY their own attendance data
   const visibleMembers = useMemo(() => {
-    return isAdmin ? members : members.filter((m) => m.id === currentUser.id);
+    const list = isAdmin ? members : members.filter((m) => m.id === currentUser.id);
+    return sortMembersAlphabetically(list);
   }, [isAdmin, members, currentUser.id]);
 
-  // Memoize all individual attendance stats map to prevent redundant heavy recalculations on search input
+  // Memoize all individual attendance stats map for the selected year
   const memberStatsMap = useMemo(() => {
     const map = new Map<string, ReturnType<typeof calculateMemberAttendance>>();
     for (const m of visibleMembers) {
-      map.set(m.id, calculateMemberAttendance(m, sessions, attendances));
+      map.set(m.id, calculateMemberAttendance(m, sessions, attendances, selectedYear));
     }
     return map;
-  }, [visibleMembers, sessions, attendances]);
+  }, [visibleMembers, sessions, attendances, selectedYear]);
 
   const filteredMembers = useMemo(() => {
     const term = searchTerm.trim().toLowerCase();
-    if (!term) return visibleMembers;
-    return visibleMembers.filter((m) =>
-      m.fullName.toLowerCase().includes(term) || m.cim.includes(term)
-    );
+    const list = !term
+      ? visibleMembers
+      : visibleMembers.filter(
+          (m) => m.fullName.toLowerCase().includes(term) || m.cim.includes(term)
+        );
+    return sortMembersAlphabetically(list);
   }, [visibleMembers, searchTerm]);
 
   const handleSendNotification = (alert: InactivityAlert) => {
     const member = members.find((m) => m.id === alert.memberId);
     if (!member) return;
 
-    const messageText = `Prezado e Querido Irmão *${member.fullName}*, Fraternas Saudações! 🤝🏛️\n\nSentimos muito a sua falta em nossos últimos trabalhos na Oficina (registramos *${alert.consecutiveAbsences} ausências consecutivas*).\n\nGostaríamos de saber com muito carinho e zelo como você e sua família estão, e se está acontecendo alguma situação ou dificuldade em que a Loja e seus Irmãos possam estender as mãos e ajudar de alguma forma.\n\nSua presença, sua luz e sua amizade são fundamentais para o fortalecimento de nossas colunas. Conte sempre conosco!\n\nUm fraterno e caloroso abraço de seus Irmãos de Loja.`;
+    const yearLabel = selectedYear === 'ALL' ? 'período histórico' : `exercício de ${selectedYear}`;
+    const messageText = `Prezado e Querido Irmão *${member.fullName}*, Fraternas Saudações! 🤝🏛️\n\nSentimos muito a sua falta em nossos últimos trabalhos na Oficina no ${yearLabel} (registramos *${alert.consecutiveAbsences} ausências consecutivas*).\n\nGostaríamos de saber com muito carinho e zelo como você e sua família estão, e se está acontecendo alguma situação ou dificuldade em que a Loja e seus Irmãos possam estender as mãos e ajudar de alguma forma.\n\nSua presença, sua luz e sua amizade são fundamentais para o fortalecimento de nossas colunas. Conte sempre conosco!\n\nUm fraterno e caloroso abraço de seus Irmãos de Loja.`;
 
     setNotifiedMembers((prev) => ({ ...prev, [member.id]: true }));
 
@@ -90,14 +112,16 @@ export const FrequencyReports: React.FC<FrequencyReportsProps> = ({
   };
 
   const exportToCSV = () => {
-    const headers = ['Nome Completo', 'CIM', 'Grau', 'Status', 'Sessoes Elegiveis', 'Presencas', 'Faltas', 'Assiduidade %'];
+    const yearLabel = selectedYear === 'ALL' ? 'Todos os Anos' : `Ano ${selectedYear}`;
+    const headers = ['Nome Completo', 'CIM', 'Grau', 'Status', 'Exercicio', 'Sessoes Elegiveis', 'Presencas', 'Faltas', 'Assiduidade %'];
     const rows = visibleMembers.map((m) => {
-      const stats = memberStatsMap.get(m.id) || calculateMemberAttendance(m, sessions, attendances);
+      const stats = memberStatsMap.get(m.id) || calculateMemberAttendance(m, sessions, attendances, selectedYear);
       return [
         `"${m.fullName}"`,
         m.cim,
         m.degree,
         m.status,
+        `"${yearLabel}"`,
         stats.totalEligible,
         stats.totalAttended,
         stats.totalMissed,
@@ -109,7 +133,7 @@ export const FrequencyReports: React.FC<FrequencyReportsProps> = ({
     const encodedUri = encodeURI(csvContent);
     const link = document.createElement('a');
     link.setAttribute('href', encodedUri);
-    link.setAttribute('download', `relatorio_frequencia_maconica_${new Date().toISOString().split('T')[0]}.csv`);
+    link.setAttribute('download', `relatorio_frequencia_${selectedYear}_${new Date().toISOString().split('T')[0]}.csv`);
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
@@ -118,9 +142,9 @@ export const FrequencyReports: React.FC<FrequencyReportsProps> = ({
   // Detailed breakdown for the selected member modal
   const selectedMemberBreakdown = useMemo(() => {
     return selectedMemberForDetail
-      ? getMemberAttendanceBreakdown(selectedMemberForDetail, sessions, attendances)
+      ? getMemberAttendanceBreakdown(selectedMemberForDetail, sessions, attendances, selectedYear)
       : null;
-  }, [selectedMemberForDetail, sessions, attendances]);
+  }, [selectedMemberForDetail, sessions, attendances, selectedYear]);
 
   const filteredBreakdownItems = useMemo(() => {
     if (!selectedMemberBreakdown) return [];
@@ -133,14 +157,16 @@ export const FrequencyReports: React.FC<FrequencyReportsProps> = ({
 
   const handleCopyMemberSummary = () => {
     if (!selectedMemberForDetail || !selectedMemberBreakdown) return;
+    const yearText = selectedYear === 'ALL' ? 'Histórico Geral (Todos os Anos)' : `Exercício ${selectedYear}`;
     const missedList = selectedMemberBreakdown.items
       .filter((i) => i.status === 'Falta')
       .map((i) => `• ${i.session.date} - ${i.session.title} (${i.session.degree})`)
       .join('\n');
 
-    const summaryText = `RELATÓRIO DE FREQUÊNCIA E AUDITORIA DE FALTAS\n` +
+    const summaryText = `RELATÓRIO DE FREQUÊNCIA E AUDITORIA DE FALTAS - ${yearText.toUpperCase()}\n` +
       `Obreiro: ${selectedMemberForDetail.fullName} (CIM: ${selectedMemberForDetail.cim})\n` +
       `Grau: ${selectedMemberForDetail.degree} | Status: ${selectedMemberForDetail.status}\n` +
+      `Exercício / Período: ${yearText}\n` +
       `----------------------------------------\n` +
       `Sessões Elegíveis: ${selectedMemberBreakdown.totalEligible}\n` +
       `Presenças Confirmadas: ${selectedMemberBreakdown.totalAttended}\n` +
@@ -159,23 +185,98 @@ export const FrequencyReports: React.FC<FrequencyReportsProps> = ({
       {/* Header */}
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 bg-slate-900 border border-slate-800 rounded-2xl p-5">
         <div>
-          <h2 className="font-serif-masonic text-xl font-bold text-amber-200">
-            {isAdmin ? 'Inteligência Regimental e Estatísticas de Frequência' : 'Minha Frequência e Assiduidade Maçônica'}
-          </h2>
+          <div className="flex items-center space-x-2">
+            <h2 className="font-serif-masonic text-xl font-bold text-amber-200">
+              {isAdmin ? 'Inteligência Regimental e Estatísticas de Frequência' : 'Minha Frequência e Assiduidade Maçônica'}
+            </h2>
+            <span className="text-xs font-mono font-bold px-2 py-0.5 rounded bg-amber-500/20 text-amber-300 border border-amber-500/40">
+              {selectedYear === 'ALL' ? 'Histórico Geral' : `Exercício ${selectedYear}`}
+            </span>
+          </div>
           <p className="text-xs text-slate-400 mt-1">
             {isAdmin
-              ? 'Cálculo automático de assiduidade e detalhamento individual de faltas e presenças.'
-              : 'Detalhamento do seu histórico de frequência e assiduidade nas sessões.'}
+              ? 'Cálculo de assiduidade anual (zerado a cada virada de ano) e histórico de exercícios anteriores.'
+              : 'Detalhamento do seu histórico de frequência e assiduidade dentro do ano maçônico.'}
           </p>
         </div>
 
-        <button
-          onClick={exportToCSV}
-          className="bg-emerald-600 hover:bg-emerald-500 text-slate-950 font-bold text-xs px-4 py-2.5 rounded-lg flex items-center space-x-2 transition shadow-md shadow-emerald-600/20"
-        >
-          <FileSpreadsheet className="w-4 h-4" />
-          <span>Exportar Relatório (CSV)</span>
-        </button>
+        <div className="flex flex-wrap items-center gap-2.5">
+          {/* Year Selector Dropdown */}
+          <div className="flex items-center space-x-2 bg-slate-950 border border-slate-800 rounded-xl px-3 py-1.5 text-xs">
+            <Calendar className="w-4 h-4 text-amber-400 shrink-0" />
+            <span className="text-slate-400 text-[11px] font-medium hidden sm:inline">Exercício:</span>
+            <select
+              value={selectedYear}
+              onChange={(e) => {
+                const val = e.target.value;
+                setSelectedYear(val === 'ALL' ? 'ALL' : parseInt(val, 10));
+              }}
+              className="bg-transparent text-amber-200 font-bold font-mono focus:outline-none cursor-pointer text-xs"
+            >
+              {availableYears.map((yr) => (
+                <option key={yr} value={yr} className="bg-slate-900 text-slate-100">
+                  {yr} {yr === currentCalendarYear ? '(Ano Atual)' : ''}
+                </option>
+              ))}
+              <option value="ALL" className="bg-slate-900 text-amber-300 font-bold">
+                Todos os Anos (Histórico Geral)
+              </option>
+            </select>
+          </div>
+
+          <button
+            onClick={exportToCSV}
+            className="bg-emerald-600 hover:bg-emerald-500 text-slate-950 font-bold text-xs px-3.5 py-2 rounded-xl flex items-center space-x-2 transition shadow-md shadow-emerald-600/20 active:scale-95"
+          >
+            <FileSpreadsheet className="w-4 h-4" />
+            <span>Exportar CSV</span>
+          </button>
+        </div>
+      </div>
+
+      {/* Annual Context Info Banner */}
+      <div className="bg-slate-900/60 border border-slate-800/80 rounded-xl p-3.5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 text-xs">
+        <div className="flex items-center space-x-3 text-slate-300">
+          <Info className="w-4 h-4 text-amber-400 shrink-0" />
+          <p className="text-[11px] leading-relaxed">
+            {selectedYear === 'ALL' ? (
+              <span>Exibindo o <strong className="text-amber-300">histórico consolidado de todos os anos</strong> com sessões registradas.</span>
+            ) : selectedYear === currentCalendarYear ? (
+              <span>Exercício Maçônico de <strong className="text-amber-300">{selectedYear} (Ano Vigente)</strong>. A contagem de presenças, faltas e percentual é calculada dentro deste ano e zerada automaticamente a cada nova virada de ano.</span>
+            ) : (
+              <span>Consulta histórica do <strong className="text-amber-300">Exercício Maçônico de {selectedYear}</strong>. Selecione outro ano no seletor acima para alternar.</span>
+            )}
+          </p>
+        </div>
+
+        {/* Quick Year Pill Filter */}
+        <div className="flex items-center gap-1 shrink-0 overflow-x-auto">
+          {availableYears.map((yr) => (
+            <button
+              key={yr}
+              type="button"
+              onClick={() => setSelectedYear(yr)}
+              className={`px-2.5 py-1 rounded-lg text-[11px] font-mono font-bold transition ${
+                selectedYear === yr
+                  ? 'bg-amber-500 text-slate-950 shadow-sm'
+                  : 'bg-slate-950 text-slate-400 hover:text-slate-200 border border-slate-800'
+              }`}
+            >
+              {yr}
+            </button>
+          ))}
+          <button
+            type="button"
+            onClick={() => setSelectedYear('ALL')}
+            className={`px-2.5 py-1 rounded-lg text-[11px] font-bold transition ${
+              selectedYear === 'ALL'
+                ? 'bg-amber-500 text-slate-950 shadow-sm'
+                : 'bg-slate-950 text-slate-400 hover:text-slate-200 border border-slate-800'
+            }`}
+          >
+            Todos
+          </button>
+        </div>
       </div>
 
       {/* Tabs */}
@@ -202,10 +303,10 @@ export const FrequencyReports: React.FC<FrequencyReportsProps> = ({
             }`}
           >
             <ShieldAlert className="w-4 h-4 text-rose-400" />
-            <span>Alertas de Inassiduidade (3 Faltas)</span>
-            {inactivityAlerts.length > 0 && (
+            <span>Alertas de Inassiduidade ({selectedYear === 'ALL' ? 'Geral' : selectedYear})</span>
+            {yearInactivityAlerts.length > 0 && (
               <span className="bg-rose-500 text-white text-[10px] px-1.5 py-0.2 rounded-full font-bold">
-                {inactivityAlerts.length}
+                {yearInactivityAlerts.length}
               </span>
             )}
           </button>
@@ -337,15 +438,19 @@ export const FrequencyReports: React.FC<FrequencyReportsProps> = ({
             </p>
           </div>
 
-          {inactivityAlerts.length === 0 ? (
+          {yearInactivityAlerts.length === 0 ? (
             <div className="bg-slate-950 p-8 rounded-xl border border-slate-800 text-center text-xs text-slate-400">
               <CheckCircle className="w-10 h-10 text-emerald-400 mx-auto mb-2" />
               <p className="font-semibold text-slate-200">Nenhum Obreiro em Alerta Crítico</p>
-              <p className="mt-1">Todos os Irmãos possuem frequência regular nas reuniões de seu grau.</p>
+              <p className="mt-1">
+                {selectedYear === 'ALL'
+                  ? 'Todos os Irmãos possuem frequência regular nas reuniões de seu grau no histórico geral.'
+                  : `Todos os Irmãos possuem frequência regular nas reuniões de seu grau no exercício de ${selectedYear}.`}
+              </p>
             </div>
           ) : (
             <div className="space-y-4">
-              {inactivityAlerts.map((alert) => {
+              {yearInactivityAlerts.map((alert) => {
                 const member = members.find((m) => m.id === alert.memberId);
                 const isNotified = notifiedMembers[alert.memberId];
                 const missedSessions = sessions.filter((s) => alert.missedSessionIds.includes(s.id));
@@ -483,6 +588,44 @@ export const FrequencyReports: React.FC<FrequencyReportsProps> = ({
 
               {/* Painel de Métricas e Resumo */}
               <div className="p-3.5 sm:p-5 space-y-4 sm:space-y-5">
+                {/* Year Selection for Modal Breakdown */}
+                <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 bg-slate-950/80 border border-slate-800 rounded-xl p-3 text-xs">
+                  <div className="flex items-center space-x-2 text-slate-300">
+                    <Calendar className="w-4 h-4 text-amber-400 shrink-0" />
+                    <span>
+                      Exercício em Análise: <strong className="text-amber-300 font-mono">{selectedYear === 'ALL' ? 'Histórico Consolidado' : selectedYear}</strong>
+                    </span>
+                  </div>
+
+                  <div className="flex items-center gap-1.5 flex-wrap">
+                    {availableYears.map((yr) => (
+                      <button
+                        key={yr}
+                        type="button"
+                        onClick={() => setSelectedYear(yr)}
+                        className={`px-2.5 py-1 rounded-lg text-xs font-mono font-bold transition ${
+                          selectedYear === yr
+                            ? 'bg-amber-500 text-slate-950'
+                            : 'bg-slate-900 text-slate-400 hover:text-slate-200 border border-slate-800'
+                        }`}
+                      >
+                        {yr} {yr === currentCalendarYear ? '(Atual)' : ''}
+                      </button>
+                    ))}
+                    <button
+                      type="button"
+                      onClick={() => setSelectedYear('ALL')}
+                      className={`px-2.5 py-1 rounded-lg text-xs font-bold transition ${
+                        selectedYear === 'ALL'
+                          ? 'bg-amber-500 text-slate-950'
+                          : 'bg-slate-900 text-slate-400 hover:text-slate-200 border border-slate-800'
+                      }`}
+                    >
+                      Todos os Anos
+                    </button>
+                  </div>
+                </div>
+
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-2.5">
                   <div className="bg-slate-950 p-2.5 sm:p-3 rounded-xl border border-slate-800 text-center">
                     <span className="text-[10px] text-slate-400 uppercase font-semibold block">Elegíveis</span>

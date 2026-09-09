@@ -7,7 +7,7 @@ import {
   INITIAL_BALAUSTRES
 } from './data/mockData';
 import { Member, Session, AttendanceRecord, VisitorRecord, Balaustre, CustomEvent } from './types/masonic';
-import { detectInactivityAlerts, sortSessionsByCreationDesc } from './utils/masonicUtils';
+import { detectInactivityAlerts, sortSessionsByCreationDesc, sortMembersAlphabetically } from './utils/masonicUtils';
 import { supabaseService, SupabaseConnectionStatus } from './lib/supabaseService';
 import { Sidebar } from './components/Sidebar';
 import { TopHeader } from './components/TopHeader';
@@ -57,13 +57,13 @@ export default function App() {
               m.id !== 'admin-1' &&
               m.fullName !== 'Administrador do Sistema'
           );
-          if (cleaned.length > 0) return cleaned;
+          if (cleaned.length > 0) return sortMembersAlphabetically(cleaned);
         }
       } catch (e) {
         // Fallback
       }
     }
-    return INITIAL_MEMBERS;
+    return sortMembersAlphabetically(INITIAL_MEMBERS);
   });
 
   const [sessions, setSessions] = useState<Session[]>(() => {
@@ -297,7 +297,7 @@ export default function App() {
         if (!isMounted) return;
 
         if (remoteMembers && remoteMembers.length > 0) {
-          setMembers(remoteMembers);
+          setMembers(sortMembersAlphabetically(remoteMembers));
         }
         if (remoteSessions && remoteSessions.length > 0) {
           setSessions(sortSessionsByCreationDesc(remoteSessions));
@@ -410,12 +410,14 @@ export default function App() {
           if (item && item.id && item.id !== 'admin-1' && item.id !== 'admin_sys') {
             setMembers((prev) => {
               const matchIdx = prev.findIndex((m) => m.id === item.id);
+              let next: Member[];
               if (matchIdx >= 0) {
-                const next = [...prev];
+                next = [...prev];
                 next[matchIdx] = item;
-                return next;
+              } else {
+                next = [item, ...prev];
               }
-              return [item, ...prev];
+              return sortMembersAlphabetically(next);
             });
           }
         } else if (payload.eventType === 'DELETE') {
@@ -496,7 +498,7 @@ export default function App() {
 
   // Handlers with Supabase sync
   const handleAddMember = useCallback((newMem: Member) => {
-    setMembers((prev) => [newMem, ...prev]);
+    setMembers((prev) => sortMembersAlphabetically([newMem, ...prev]));
     supabaseService.upsertMember(newMem);
   }, []);
 
@@ -540,7 +542,9 @@ export default function App() {
   );
 
   const handleUpdateMember = useCallback((updatedMem: Member) => {
-    setMembers((prev) => prev.map((m) => (m.id === updatedMem.id ? updatedMem : m)));
+    setMembers((prev) =>
+      sortMembersAlphabetically(prev.map((m) => (m.id === updatedMem.id ? updatedMem : m)))
+    );
     supabaseService.upsertMember(updatedMem);
     setCurrentUser((prevUser) => {
       if (prevUser && prevUser.id === updatedMem.id) {

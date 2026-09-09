@@ -18,7 +18,7 @@ import {
   Trash2
 } from 'lucide-react';
 import { Session, Member, AttendanceRecord, VisitorRecord } from '../types/masonic';
-import { calculateSessionStats, canDegreeAttend } from '../utils/masonicUtils';
+import { calculateSessionStats, canDegreeAttend, sortMembersAlphabetically } from '../utils/masonicUtils';
 import { isLodgeAdmin, isSystemAdmin } from '../utils/authUtils';
 import { getMemberPhotoUrl } from '../utils/avatarUtils';
 import { QrCodeScannerModal } from './QrCodeScannerModal';
@@ -141,13 +141,15 @@ export const LiveSessionPanel: React.FC<LiveSessionPanelProps> = ({
 
   const filteredMembers = useMemo(() => {
     const term = searchTerm.trim().toLowerCase();
-    if (!term) return members;
-    return members.filter((m) => {
-      return (
-        m.fullName.toLowerCase().includes(term) ||
-        m.cim.includes(term)
-      );
-    });
+    const list = !term
+      ? members
+      : members.filter((m) => {
+          return (
+            m.fullName.toLowerCase().includes(term) ||
+            m.cim.includes(term)
+          );
+        });
+    return sortMembersAlphabetically(list);
   }, [members, searchTerm]);
 
   if (!activeSession || !stats) {

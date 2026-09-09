@@ -25,7 +25,7 @@ import {
   ShoppingBag
 } from 'lucide-react';
 import { Member, Session, AttendanceRecord, VisitorRecord, InactivityAlert } from '../types/masonic';
-import { calculateSessionStats, calculateMemberAttendance } from '../utils/masonicUtils';
+import { calculateSessionStats, calculateMemberAttendance, getAvailableSessionYears, filterSessionsByYear } from '../utils/masonicUtils';
 import { isLodgeAdmin, isSystemAdmin, getRoleBadgeLabel, canAccessSessionDegree } from '../utils/authUtils';
 import { getMemberPhotoUrl } from '../utils/avatarUtils';
 import { formatDisplayDate } from '../utils/formatters';
@@ -63,7 +63,12 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({
   onOpenEditProfile,
 }) => {
   const isAdmin = isLodgeAdmin(currentUser);
+  const currentCalendarYear = new Date().getFullYear();
+  const [personalYear, setPersonalYear] = useState<number | 'ALL'>(currentCalendarYear);
   const [isScannerOpen, setIsScannerOpen] = useState(false);
+
+  // Available recorded years
+  const availableYears = useMemo(() => getAvailableSessionYears(sessions), [sessions]);
 
   // Calculate data STRICTLY for the active session (if any)
   const activeSessionAttendances = useMemo(() => {
@@ -85,15 +90,16 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({
       : null;
   }, [activeSession, members, attendances, visitors]);
 
-  // Calculate Personal Attendance Stats for user (applicable to all brethren including officers)
+  // Calculate Personal Attendance Stats for user scoped to personalYear
   const personalAttendance = useMemo(() => {
-    return calculateMemberAttendance(currentUser, sessions, attendances);
-  }, [currentUser, sessions, attendances]);
+    return calculateMemberAttendance(currentUser, sessions, attendances, personalYear);
+  }, [currentUser, sessions, attendances, personalYear]);
 
-  // Sessions accessible to current user
+  // Sessions accessible to current user for the selected year
   const eligibleSessions = useMemo(() => {
-    return sessions.filter((s) => canAccessSessionDegree(currentUser, s.degreeLevel));
-  }, [sessions, currentUser]);
+    const yearFiltered = filterSessionsByYear(sessions, personalYear);
+    return yearFiltered.filter((s) => canAccessSessionDegree(currentUser, s.degreeLevel));
+  }, [sessions, currentUser, personalYear]);
 
   // Check if active session is accessible to user's degree
   const isActiveSessionAccessible = useMemo(() => {
@@ -180,56 +186,85 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({
               </div>
             </div>
 
-            {/* Attendance Percentage Meter */}
-            <div className="bg-slate-900/90 border border-slate-800 rounded-xl p-4 flex items-center space-x-5 shrink-0">
-              <div className="relative w-16 h-16 flex items-center justify-center">
-                <svg className="w-full h-full transform -rotate-90" viewBox="0 0 36 36">
-                  <path
-                    className="text-slate-800"
-                    strokeWidth="3.8"
-                    stroke="currentColor"
-                    fill="none"
-                    d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
-                  />
-                  <path
-                    className={
-                      personalAttendance.percentage >= 75
-                        ? 'text-emerald-400'
-                        : personalAttendance.percentage >= 50
-                        ? 'text-amber-400'
-                        : 'text-rose-400'
-                    }
-                    strokeDasharray={`${personalAttendance.percentage}, 100`}
-                    strokeWidth="3.8"
-                    strokeLinecap="round"
-                    stroke="currentColor"
-                    fill="none"
-                    d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
-                  />
-                </svg>
-                <div className="absolute flex flex-col items-center justify-center">
-                  <span className="text-base font-bold text-slate-100">{personalAttendance.percentage}%</span>
+            {/* Attendance Percentage Meter with Year Selector */}
+            <div className="bg-slate-900/90 border border-slate-800 rounded-xl p-4 flex flex-col sm:flex-row items-center gap-4 shrink-0">
+              <div className="flex items-center space-x-4">
+                <div className="relative w-16 h-16 flex items-center justify-center shrink-0">
+                  <svg className="w-full h-full transform -rotate-90" viewBox="0 0 36 36">
+                    <path
+                      className="text-slate-800"
+                      strokeWidth="3.8"
+                      stroke="currentColor"
+                      fill="none"
+                      d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
+                    />
+                    <path
+                      className={
+                        personalAttendance.percentage >= 75
+                          ? 'text-emerald-400'
+                          : personalAttendance.percentage >= 50
+                          ? 'text-amber-400'
+                          : 'text-rose-400'
+                      }
+                      strokeDasharray={`${personalAttendance.percentage}, 100`}
+                      strokeWidth="3.8"
+                      strokeLinecap="round"
+                      stroke="currentColor"
+                      fill="none"
+                      d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
+                    />
+                  </svg>
+                  <div className="absolute flex flex-col items-center justify-center">
+                    <span className="text-base font-bold text-slate-100">{personalAttendance.percentage}%</span>
+                  </div>
+                </div>
+
+                <div className="space-y-1 text-xs">
+                  <div className="flex items-center space-x-2">
+                    <p className="font-semibold text-amber-200">Sua Assiduidade</p>
+                    <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-300 border border-amber-500/30">
+                      {personalYear === 'ALL' ? 'Histórico Geral' : `Exercício ${personalYear}`}
+                    </span>
+                  </div>
+                  <p className="text-[11px] text-slate-400">
+                    {personalAttendance.totalAttended} Presenças / {personalAttendance.totalEligible} Sessões Elegíveis
+                  </p>
+                  <div className="pt-0.5">
+                    {personalAttendance.percentage >= 75 ? (
+                      <span className="inline-flex items-center space-x-1 text-[10px] text-emerald-400 bg-emerald-950/80 border border-emerald-800 px-2 py-0.5 rounded font-medium">
+                        <CheckCircle2 className="w-3 h-3" />
+                        <span>Apto a Voto e Elevação/Aumento</span>
+                      </span>
+                    ) : (
+                      <span className="inline-flex items-center space-x-1 text-[10px] text-rose-400 bg-rose-950/80 border border-rose-800 px-2 py-0.5 rounded font-medium">
+                        <AlertTriangle className="w-3 h-3" />
+                        <span>Abaixo dos 75% Exigidos</span>
+                      </span>
+                    )}
+                  </div>
                 </div>
               </div>
 
-              <div className="space-y-1 text-xs">
-                <p className="font-semibold text-amber-200">Sua Frequência Regimental</p>
-                <p className="text-[11px] text-slate-400">
-                  {personalAttendance.totalAttended} Presenças / {personalAttendance.totalEligible} Sessões Elegíveis
-                </p>
-                <div className="pt-1">
-                  {personalAttendance.percentage >= 75 ? (
-                    <span className="inline-flex items-center space-x-1 text-[10px] text-emerald-400 bg-emerald-950/80 border border-emerald-800 px-2 py-0.5 rounded font-medium">
-                      <CheckCircle2 className="w-3 h-3" />
-                      <span>Apto a Voto e Elevação/Aumento</span>
-                    </span>
-                  ) : (
-                    <span className="inline-flex items-center space-x-1 text-[10px] text-rose-400 bg-rose-950/80 border border-rose-800 px-2 py-0.5 rounded font-medium">
-                      <AlertTriangle className="w-3 h-3" />
-                      <span>Abaixo dos 75% Exigidos</span>
-                    </span>
-                  )}
-                </div>
+              {/* Quick Year Picker for Personal View */}
+              <div className="border-t sm:border-t-0 sm:border-l border-slate-800 pt-2 sm:pt-0 sm:pl-4 flex flex-col items-center sm:items-start space-y-1.5">
+                <span className="text-[10px] text-slate-400 uppercase font-semibold">Exercício:</span>
+                <select
+                  value={personalYear}
+                  onChange={(e) => {
+                    const val = e.target.value;
+                    setPersonalYear(val === 'ALL' ? 'ALL' : parseInt(val, 10));
+                  }}
+                  className="bg-slate-950 border border-slate-800 rounded-lg px-2.5 py-1 text-xs font-mono font-bold text-amber-300 focus:outline-none focus:border-amber-500 cursor-pointer"
+                >
+                  {availableYears.map((yr) => (
+                    <option key={yr} value={yr} className="bg-slate-900 text-slate-100">
+                      {yr} {yr === currentCalendarYear ? '(Ano Atual)' : ''}
+                    </option>
+                  ))}
+                  <option value="ALL" className="bg-slate-900 text-amber-300 font-bold">
+                    Todos os Anos (Geral)
+                  </option>
+                </select>
               </div>
             </div>
           </div>

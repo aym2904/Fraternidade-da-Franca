@@ -47,6 +47,59 @@ export function canDegreeAttend(
 }
 
 /**
+ * Sorts members alphabetically by full name (A-Z) using Portuguese collation.
+ */
+export function sortMembersAlphabetically(members: Member[]): Member[] {
+  return [...members].sort((a, b) => {
+    const nameA = (a.fullName || '').trim();
+    const nameB = (b.fullName || '').trim();
+    return nameA.localeCompare(nameB, 'pt-BR', { sensitivity: 'base', numeric: true });
+  });
+}
+
+/**
+ * Extracts the integer year from a session's date string (YYYY-MM-DD).
+ */
+export function getSessionYear(session: Session | { date: string }): number {
+  if (!session || !session.date) return new Date().getFullYear();
+  const yearStr = session.date.split('-')[0];
+  const year = parseInt(yearStr, 10);
+  return isNaN(year) ? new Date().getFullYear() : year;
+}
+
+/**
+ * Returns a sorted, unique list of all years with registered sessions,
+ * always including the current calendar year.
+ */
+export function getAvailableSessionYears(sessions: Session[]): number[] {
+  const currentYear = new Date().getFullYear();
+  const yearSet = new Set<number>([currentYear]);
+
+  sessions.forEach((s) => {
+    if (s.date) {
+      const y = getSessionYear(s);
+      if (!isNaN(y) && y > 1900 && y < 2200) {
+        yearSet.add(y);
+      }
+    }
+  });
+
+  return Array.from(yearSet).sort((a, b) => b - a);
+}
+
+/**
+ * Filters sessions by a specific calendar year or returns all if 'ALL'.
+ * If year is undefined, defaults to the current calendar year.
+ */
+export function filterSessionsByYear(sessions: Session[], year?: number | 'ALL'): Session[] {
+  if (year === 'ALL') {
+    return sessions;
+  }
+  const targetYear = typeof year === 'number' ? year : new Date().getFullYear();
+  return sessions.filter((s) => getSessionYear(s) === targetYear);
+}
+
+/**
  * Sorts sessions in descending order by creation/date.
  */
 export function sortSessionsByCreationDesc(sessions: Session[]): Session[] {
@@ -96,18 +149,24 @@ export function calculateSessionStats(
 }
 
 /**
- * Calculates attendance statistics for a specific member across all eligible sessions.
+ * Calculates attendance statistics for a specific member across eligible sessions in a given year.
+ * If targetYear is undefined, defaults to the current calendar year.
+ * If targetYear is 'ALL', calculates across all sessions in the database.
  */
 export function calculateMemberAttendance(
   memberOrId: Member | string,
   sessions: Session[],
-  attendances: AttendanceRecord[]
+  attendances: AttendanceRecord[],
+  targetYear?: number | 'ALL'
 ): MemberAttendanceStats {
   const memberId = typeof memberOrId === 'string' ? memberOrId : memberOrId.id;
   const degreeLevel = typeof memberOrId === 'object' ? memberOrId.degreeLevel : 3;
 
+  // Filter sessions by target year (or current year if omitted, or all if 'ALL')
+  const yearSessions = filterSessionsByYear(sessions, targetYear);
+
   // Filter sessions that this member is eligible to attend (degreeLevel >= session.degreeLevel)
-  const eligibleSessions = sessions.filter((s) => canDegreeAttend(degreeLevel, s.degreeLevel));
+  const eligibleSessions = yearSessions.filter((s) => canDegreeAttend(degreeLevel, s.degreeLevel));
   const totalEligible = eligibleSessions.length;
 
   if (totalEligible === 0) {
@@ -140,16 +199,18 @@ export function calculateMemberAttendance(
 }
 
 /**
- * Returns a detailed breakdown of attendance session-by-session for a specific member.
+ * Returns a detailed breakdown of attendance session-by-session for a specific member in a given year.
  */
 export function getMemberAttendanceBreakdown(
   member: Member,
   sessions: Session[],
-  attendances: AttendanceRecord[]
+  attendances: AttendanceRecord[],
+  targetYear?: number | 'ALL'
 ): MemberAttendanceBreakdown {
-  const stats = calculateMemberAttendance(member, sessions, attendances);
+  const stats = calculateMemberAttendance(member, sessions, attendances, targetYear);
+  const yearSessions = filterSessionsByYear(sessions, targetYear);
   const eligibleSessions = sortSessionsByCreationDesc(
-    sessions.filter((s) => canDegreeAttend(member.degreeLevel, s.degreeLevel))
+    yearSessions.filter((s) => canDegreeAttend(member.degreeLevel, s.degreeLevel))
   );
 
   const items: MemberAttendanceItem[] = eligibleSessions.map((session) => {
@@ -170,15 +231,18 @@ export function getMemberAttendanceBreakdown(
 }
 
 /**
- * Detects inactivity / consecutive absences alerts for lodge members (3 or more consecutive absences).
+ * Detects inactivity / consecutive absences alerts for lodge members (3 or more consecutive absences)
+ * within the active calendar year (or specified targetYear).
  */
 export function detectInactivityAlerts(
   members: Member[],
   sessions: Session[],
-  attendances: AttendanceRecord[]
+  attendances: AttendanceRecord[],
+  targetYear?: number | 'ALL'
 ): InactivityAlert[] {
   const alerts: InactivityAlert[] = [];
-  const sortedSessions = sortSessionsByCreationDesc(sessions);
+  const yearSessions = filterSessionsByYear(sessions, targetYear);
+  const sortedSessions = sortSessionsByCreationDesc(yearSessions);
 
   members.forEach((member) => {
     // Only check active members

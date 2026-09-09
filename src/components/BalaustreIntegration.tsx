@@ -20,7 +20,7 @@ import {
   UserCheck
 } from 'lucide-react';
 import { Balaustre, Session, Member, AttendanceRecord, VisitorRecord } from '../types/masonic';
-import { calculateSessionStats, sortSessionsByCreationDesc } from '../utils/masonicUtils';
+import { calculateSessionStats, sortSessionsByCreationDesc, sortMembersAlphabetically } from '../utils/masonicUtils';
 import { generateAttendanceCertificatePDF, generateBalaustrePDF } from '../utils/pdfGenerator';
 import { isLodgeAdmin, canAccessBalaustreDegree } from '../utils/authUtils';
 
@@ -71,8 +71,8 @@ export const BalaustreIntegration: React.FC<BalaustreIntegrationProps> = ({
     ? visitors.filter((v) => v.sessionId === selectedSession.id)
     : [];
 
-  const presentMembers = members.filter((m) =>
-    sessionAttendances.some((a) => a.memberId === m.id)
+  const presentMembers = sortMembersAlphabetically(
+    members.filter((m) => sessionAttendances.some((a) => a.memberId === m.id))
   );
 
   const isCurrentUserPresent = selectedSession

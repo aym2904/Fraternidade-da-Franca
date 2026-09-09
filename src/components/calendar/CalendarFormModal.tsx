@@ -9,6 +9,7 @@ import {
 } from '../../types/masonic';
 import { calculateYearsPassed, getWeddingBodaName } from '../../utils/masonicCalendarUtils';
 import { isLodgeAdmin } from '../../utils/authUtils';
+import { sortMembersAlphabetically } from '../../utils/masonicUtils';
 import {
   X,
   User,
@@ -367,7 +368,7 @@ export const CalendarFormModal: React.FC<CalendarFormModalProps> = ({
                     className="w-full bg-slate-900 border border-amber-500/50 text-slate-200 text-sm rounded-xl px-3 py-2.5 focus:outline-none focus:border-amber-400"
                   >
                     <option value="">-- Selecione um Irmão da Loja --</option>
-                    {members.map((m) => (
+                    {sortMembersAlphabetically(members).map((m) => (
                       <option key={m.id} value={m.id}>
                         [CIM {m.cim || 'S/N'}] {m.fullName}
                       </option>

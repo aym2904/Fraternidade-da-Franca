@@ -8,6 +8,7 @@ import {
   DEFAULT_MESSAGE_TEMPLATES,
   formatFullBrazilianDate
 } from '../../utils/masonicCalendarUtils';
+import { sortMembersAlphabetically } from '../../utils/masonicUtils';
 import {
   User,
   Calendar,
@@ -80,11 +81,13 @@ export const CalendarTimelineView: React.FC<CalendarTimelineViewProps> = ({
   const children = selectedMember.children || [];
 
   // Filtragem na busca de membros
-  const filteredMembers = members.filter(
-    (m) =>
-      m.fullName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      m.cim.includes(searchTerm) ||
-      m.cpf.includes(searchTerm)
+  const filteredMembers = sortMembersAlphabetically(
+    members.filter(
+      (m) =>
+        m.fullName.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        m.cim.includes(searchTerm) ||
+        (m.cpf && m.cpf.includes(searchTerm))
+    )
   );
 
   const handleSendWhatsApp = (phone?: string, text?: string) => {
