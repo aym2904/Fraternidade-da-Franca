@@ -3,7 +3,7 @@ import express from 'express';
 import path from 'path';
 import { GoogleGenAI } from '@google/genai';
 import { createClient } from '@supabase/supabase-js';
-import { handleAsaasWebhook } from './server/asaasWebhookHandler';
+import { handleAsaasWebhook } from './api/asaasWebhookHandler.js';
 
 async function startServer() {
   const app = express();
