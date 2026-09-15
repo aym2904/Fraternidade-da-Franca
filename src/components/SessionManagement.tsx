@@ -770,7 +770,7 @@ export const SessionManagement: React.FC<SessionManagementProps> = ({
                   {sessionToDelete.title}
                 </div>
                 <div className="flex flex-wrap gap-2 text-[11px] text-slate-400 pt-1">
-                  <span>Data: {sessionToDelete.date.split('-').reverse().join('/')} às {sessionToDelete.time}h</span>
+                  <span>Data: {sessionToDelete.date ? sessionToDelete.date.split('-').reverse().join('/') : '---'} às {sessionToDelete.time || '--:--'}h</span>
                   <span>•</span>
                   <span>Grau: {sessionToDelete.degree}</span>
                   <span>•</span>

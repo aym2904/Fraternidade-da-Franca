@@ -19,6 +19,7 @@ import { BalaustreIntegration } from './components/BalaustreIntegration';
 import { FrequencyReports } from './components/FrequencyReports';
 import { MasonicCalendar } from './components/MasonicCalendar';
 import { PastaSalesModule } from './components/pasta/PastaSalesModule';
+import { TroncoBeneficencia } from './components/TroncoBeneficencia';
 import { LoginScreen } from './components/LoginScreen';
 import { PublicMemberRegistrationModal } from './components/PublicMemberRegistrationModal';
 import { SupabaseStatusModal } from './components/SupabaseStatusModal';
@@ -618,16 +619,31 @@ export default function App() {
       return;
     }
 
+    const nowIso = new Date().toISOString();
     setSessions((prev) => {
       const updated = prev.map((s) => {
         if (s.id === sessionId) {
-          const sess = { ...s, active: !s.active };
+          const willBeActive = !s.active;
+          const sess: Session = {
+            ...s,
+            active: willBeActive,
+            beneficenceQrStatus: willBeActive ? (s.beneficenceQrStatus === 'CLOSED' ? 'ACTIVE' : s.beneficenceQrStatus || 'ACTIVE') : 'CLOSED',
+            closedAt: willBeActive ? undefined : nowIso,
+          };
           supabaseService.upsertSession(sess);
           return sess;
         }
-        const sess = { ...s, active: false };
-        supabaseService.upsertSession(sess);
-        return sess;
+        if (s.active) {
+          const sess: Session = {
+            ...s,
+            active: false,
+            beneficenceQrStatus: 'CLOSED',
+            closedAt: nowIso,
+          };
+          supabaseService.upsertSession(sess);
+          return sess;
+        }
+        return s;
       });
       return updated;
     });
@@ -898,6 +914,15 @@ export default function App() {
             attendances={attendances}
             inactivityAlerts={inactivityAlerts}
             currentUser={currentUser}
+          />
+        )}
+
+        {activeTab === 'tronco_beneficencia' && (
+          <TroncoBeneficencia
+            currentUser={currentUser}
+            sessions={sessions}
+            activeSession={activeSession}
+            onOpenSessionModal={() => setActiveTab('sessoes')}
           />
         )}
 

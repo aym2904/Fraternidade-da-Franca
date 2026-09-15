@@ -232,9 +232,11 @@ export const LiveSessionPanel: React.FC<LiveSessionPanelProps> = ({
             </h2>
 
             <p className="text-xs text-slate-300 mt-1 flex items-center space-x-4">
-              <span>Data: {activeSession.date.split('-').reverse().join('/')} às {activeSession.time}h</span>
+              <span>
+                Data: {activeSession.date ? activeSession.date.split('-').reverse().join('/') : '---'} às {activeSession.time || '--:--'}h
+              </span>
               <span>•</span>
-              <span>{activeSession.location}</span>
+              <span>{activeSession.location || 'Templo Principal'}</span>
             </p>
           </div>
 

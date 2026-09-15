@@ -308,7 +308,7 @@ Balaústre lavrado pelo Secretário da Oficina e submetido para aprovação regi
           >
             {accessibleSessions.map((s) => (
               <option key={s.id} value={s.id}>
-                {s.title} ({s.date.split('-').reverse().join('/')})
+                {s.title} ({s.date ? s.date.split('-').reverse().join('/') : '---'})
               </option>
             ))}
           </select>
@@ -345,7 +345,9 @@ Balaústre lavrado pelo Secretário da Oficina e submetido para aprovação regi
 
             <div className="flex justify-between p-2.5 bg-slate-950 rounded-xl border border-slate-800">
               <span className="text-slate-400">Data e Horário:</span>
-              <span className="font-bold text-slate-200">{selectedSession?.date.split('-').reverse().join('/')} às {selectedSession?.time}h</span>
+              <span className="font-bold text-slate-200">
+                {selectedSession?.date ? selectedSession.date.split('-').reverse().join('/') : '---'} às {selectedSession?.time || '--:--'}h
+              </span>
             </div>
 
             <div className="flex justify-between p-2.5 bg-slate-950 rounded-xl border border-slate-800">

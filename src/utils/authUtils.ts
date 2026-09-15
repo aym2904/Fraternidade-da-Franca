@@ -103,6 +103,46 @@ export function isLodgeAdmin(member: Member | null | undefined): boolean {
 }
 
 /**
+ * Funções e cargos com acesso administrativo exclusivo ao Tronco de Beneficência:
+ * - Administrador do Sistema (admin)
+ * - Tesoureiro
+ * - Venerável Mestre
+ * - Secretário
+ * - Chanceler
+ */
+export const TRONCO_BENEFICENCE_ADMIN_ROLES: LodgeOfficerRole[] = [
+  'Tesoureiro',
+  'Venerável Mestre',
+  'Secretário',
+  'Chanceler',
+];
+
+/**
+ * Função centralizada para determinar se o usuário possui permissão administrativa para o Tronco de Beneficência.
+ * Retorna TRUE exclusivamente para Administrador, Tesoureiro, Venerável Mestre, Secretário ou Chanceler.
+ */
+export function isBeneficenceAdmin(member: Member | null | undefined): boolean {
+  if (!member) return false;
+  if (isSystemAdmin(member)) return true;
+
+  const role = member.currentOfficerRole;
+  if (!role) return false;
+
+  const clean = role
+    .trim()
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '');
+
+  return (
+    clean === 'tesoureiro' ||
+    clean === 'veneravel mestre' ||
+    clean === 'secretario' ||
+    clean === 'chanceler'
+  );
+}
+
+/**
  * Returns permissions for a specific officer role if defined.
  */
 export function getOfficerPermissions(role?: LodgeOfficerRole | string): RolePermissions | null {

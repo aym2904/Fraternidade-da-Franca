@@ -21,12 +21,14 @@ export interface SupabaseTableStatus {
   count?: number;
   error?: string;
   code?: string;
+  isOptional?: boolean;
 }
 
 export interface SupabaseConnectionStatus {
   connected: boolean;
   url: string;
   hasTables: boolean;
+  hasCoreTables?: boolean;
   tableStatuses: SupabaseTableStatus[];
   errorMessage?: string;
   lastChecked: string;
@@ -91,10 +93,22 @@ CREATE TABLE IF NOT EXISTS sessions (
   active BOOLEAN DEFAULT false,
   officers JSONB,
   notes TEXT,
-  "createdAt" TEXT
+  "createdAt" TEXT,
+  "closedAt" TEXT,
+  "beneficenceQrCodeId" TEXT,
+  "beneficenceQrPayload" TEXT,
+  "beneficenceQrImage" TEXT,
+  "beneficenceQrExpiresAt" TEXT,
+  "beneficenceQrStatus" TEXT DEFAULT 'PENDING'
 );
 
 ALTER TABLE sessions ADD COLUMN IF NOT EXISTS "createdAt" TEXT;
+ALTER TABLE sessions ADD COLUMN IF NOT EXISTS "closedAt" TEXT;
+ALTER TABLE sessions ADD COLUMN IF NOT EXISTS "beneficenceQrCodeId" TEXT;
+ALTER TABLE sessions ADD COLUMN IF NOT EXISTS "beneficenceQrPayload" TEXT;
+ALTER TABLE sessions ADD COLUMN IF NOT EXISTS "beneficenceQrImage" TEXT;
+ALTER TABLE sessions ADD COLUMN IF NOT EXISTS "beneficenceQrExpiresAt" TEXT;
+ALTER TABLE sessions ADD COLUMN IF NOT EXISTS "beneficenceQrStatus" TEXT DEFAULT 'PENDING';
 
 -- 3. TABELA DE PRESENÇAS / CHAMADA
 CREATE TABLE IF NOT EXISTS attendances (
@@ -157,13 +171,70 @@ CREATE TABLE IF NOT EXISTS pasta_sales (
   notes TEXT
 );
 
--- HABILITAR ROW LEVEL SECURITY (RLS) E LIBERAR ACESSO PÚBLICO (ANON)
+-- 7. TABELA DO TRONCO DE BENEFICÊNCIA (MODELO NOVO: beneficence_contributions)
+CREATE TABLE IF NOT EXISTS beneficence_contributions (
+  id TEXT PRIMARY KEY,
+  session_id TEXT NOT NULL,
+  amount NUMERIC(12,2) NOT NULL,
+  currency TEXT NOT NULL DEFAULT 'BRL',
+  status TEXT NOT NULL DEFAULT 'PENDING',
+  payment_method TEXT NOT NULL DEFAULT 'PIX',
+  asaas_payment_id TEXT UNIQUE,
+  asaas_qr_code_id TEXT,
+  asaas_event_id TEXT UNIQUE,
+  anonymous BOOLEAN NOT NULL DEFAULT true,
+  notes TEXT,
+  contributor_cim TEXT,
+  paid_at TIMESTAMPTZ,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_beneficence_session_status ON beneficence_contributions (session_id, status);
+CREATE INDEX IF NOT EXISTS idx_beneficence_qr_code_id ON beneficence_contributions (asaas_qr_code_id);
+CREATE INDEX IF NOT EXISTS idx_beneficence_payment_id ON beneficence_contributions (asaas_payment_id);
+
+-- TABELA LEGADA COMPATÍVEL (tronco_contributions)
+CREATE TABLE IF NOT EXISTS tronco_contributions (
+  id TEXT PRIMARY KEY,
+  "sequenceNumber" INT,
+  "sessionId" TEXT NOT NULL,
+  "sessionTitle" TEXT NOT NULL,
+  "sessionDate" TEXT NOT NULL,
+  amount NUMERIC NOT NULL,
+  status TEXT NOT NULL DEFAULT 'PENDING',
+  "paymentMethod" TEXT DEFAULT 'PIX',
+  "asaasPaymentId" TEXT,
+  "asaasQrCode" TEXT,
+  "asaasPayload" TEXT,
+  "externalReference" TEXT,
+  anonymous BOOLEAN DEFAULT true,
+  "contributorId" TEXT,
+  "contributorCim" TEXT,
+  "createdAt" TEXT NOT NULL,
+  "confirmedAt" TEXT,
+  notes TEXT
+);
+
+-- 8. VIEW DE TOTALIZAÇÃO ANÔNIMA PÚBLICA PARA O TRONCO
+CREATE OR REPLACE VIEW public_tronco_session_totals AS
+SELECT
+  session_id,
+  COALESCE(SUM(amount) FILTER (WHERE status = 'CONFIRMED' OR status = 'RECEIVED'), 0) AS total_amount,
+  COUNT(*) FILTER (WHERE status = 'CONFIRMED' OR status = 'RECEIVED') AS confirmed_count,
+  MAX(updated_at) AS last_updated_at
+FROM beneficence_contributions
+GROUP BY session_id;
+
+-- HABILITAR ROW LEVEL SECURITY (RLS) E LIBERAR ACESSO
 ALTER TABLE members ENABLE ROW LEVEL SECURITY;
 ALTER TABLE sessions ENABLE ROW LEVEL SECURITY;
 ALTER TABLE attendances ENABLE ROW LEVEL SECURITY;
 ALTER TABLE visitors ENABLE ROW LEVEL SECURITY;
 ALTER TABLE balaustres ENABLE ROW LEVEL SECURITY;
 ALTER TABLE pasta_sales ENABLE ROW LEVEL SECURITY;
+ALTER TABLE beneficence_contributions ENABLE ROW LEVEL SECURITY;
+ALTER TABLE tronco_contributions ENABLE ROW LEVEL SECURITY;
 
 -- DADOS DE PERMISSÃO COMPLETA PARA OS PAPÉIS DO SUPABASE (anon, authenticated e service_role)
 GRANT USAGE ON SCHEMA public TO anon, authenticated, service_role;
@@ -191,6 +262,12 @@ CREATE POLICY "Allow public access balaustres" ON balaustres FOR ALL USING (true
 DROP POLICY IF EXISTS "Allow public access pasta_sales" ON pasta_sales;
 CREATE POLICY "Allow public access pasta_sales" ON pasta_sales FOR ALL USING (true) WITH CHECK (true);
 
+DROP POLICY IF EXISTS "Allow public access beneficence" ON beneficence_contributions;
+CREATE POLICY "Allow public access beneficence" ON beneficence_contributions FOR ALL USING (true) WITH CHECK (true);
+
+DROP POLICY IF EXISTS "Allow public access tronco_contributions" ON tronco_contributions;
+CREATE POLICY "Allow public access tronco_contributions" ON tronco_contributions FOR ALL USING (true) WITH CHECK (true);
+
 -- HABILITAR REALTIME INSTANTÂNEO NO SUPABASE
 ALTER PUBLICATION supabase_realtime ADD TABLE members;
 ALTER PUBLICATION supabase_realtime ADD TABLE sessions;
@@ -198,69 +275,155 @@ ALTER PUBLICATION supabase_realtime ADD TABLE attendances;
 ALTER PUBLICATION supabase_realtime ADD TABLE visitors;
 ALTER PUBLICATION supabase_realtime ADD TABLE balaustres;
 ALTER PUBLICATION supabase_realtime ADD TABLE pasta_sales;
+ALTER PUBLICATION supabase_realtime ADD TABLE beneficence_contributions;
+ALTER PUBLICATION supabase_realtime ADD TABLE tronco_contributions;
 `;
 
 export const supabaseService = {
   // CONNECTION DIAGNOSTIC
   async checkConnection(): Promise<SupabaseConnectionStatus> {
-    const targetTables = ['members', 'sessions', 'attendances', 'visitors', 'balaustres', 'pasta_sales'];
-    const tableStatuses: SupabaseTableStatus[] = [];
+    const targetTables: { name: string; isOptional: boolean }[] = [
+      { name: 'members', isOptional: false },
+      { name: 'sessions', isOptional: false },
+      { name: 'attendances', isOptional: false },
+      { name: 'visitors', isOptional: false },
+      { name: 'balaustres', isOptional: false },
+      { name: 'pasta_sales', isOptional: true },
+      { name: 'tronco_contributions', isOptional: true },
+    ];
     let isApiConnected = false;
     let globalError: string | undefined = undefined;
 
-    for (const table of targetTables) {
-      try {
-        const { data, error, count } = await supabase.from(table).select('*', { count: 'exact', head: true });
-        if (error) {
-          isApiConnected = true; // API responded!
-          if (error.code === 'PGRST205' || error.message?.includes('schema cache') || error.code === '42P01') {
-            tableStatuses.push({
-              table,
-              exists: false,
-              error: `Tabela '${table}' ausente no Supabase (${error.code || 'PGRST205'})`,
-              code: error.code,
-            });
-          } else if (error.code === '42501' || error.message?.includes('permission denied')) {
-            tableStatuses.push({
-              table,
-              exists: false,
-              error: `Tabela existe, mas precisa da permissão GRANT (Erro 42501)`,
-              code: error.code,
-            });
-            globalError = 'Tabelas criadas, porém acesso negado (Erro 42501). Copie e rode o script SQL atualizado para liberar o acesso (GRANT).';
-          } else {
-            tableStatuses.push({
-              table,
-              exists: false,
-              error: error.message,
-              code: error.code,
-            });
-            globalError = error.message;
+    // Executar checagens de tabelas em paralelo com timeout de 6s para evitar travamento se o Supabase estiver em cold-start
+    const results = await Promise.all(
+      targetTables.map(async (item) => {
+        const table = item.name;
+        const fetchPromise = (async () => {
+          try {
+            const { data, error, count } = await supabase
+              .from(table)
+              .select('*', { count: 'exact', head: true });
+            return { item, data, error, count };
+          } catch (err: any) {
+            return { item, data: null, error: err, count: null };
           }
-        } else {
+        })();
+
+        const timeoutPromise = new Promise<{ item: typeof item; data: null; error: any; count: null }>((resolve) =>
+          setTimeout(() => {
+            resolve({
+              item,
+              data: null,
+              error: { message: 'Timeout na resposta (Servidor Supabase pausado ou reiniciando)', code: '504' },
+              count: null,
+            });
+          }, 6000)
+        );
+
+        return Promise.race([fetchPromise, timeoutPromise]);
+      })
+    );
+
+    const tableStatuses: SupabaseTableStatus[] = [];
+    let hasGatewayError = false;
+
+    for (const res of results) {
+      const { item, data, error, count } = res;
+      const table = item.name;
+
+      if (error) {
+        const errMsg = error.message || String(error);
+        const errCode = error.code;
+
+        // Detectar falhas de infraestrutura (502 Bad Gateway, 504 Gateway Timeout, 503, Failed to get API key / project config, etc.)
+        const isInfrastructureError =
+          errMsg.includes('Bad Gateway') ||
+          errMsg.includes('Gateway Timeout') ||
+          errMsg.includes('Timeout') ||
+          errMsg.includes('project config') ||
+          errMsg.includes('API key info') ||
+          errMsg.includes('INTERNAL_ERROR') ||
+          errMsg.includes('Failed to fetch') ||
+          errMsg.includes('NetworkError') ||
+          errCode === '502' ||
+          errCode === '503' ||
+          errCode === '504';
+
+        if (isInfrastructureError) {
+          hasGatewayError = true;
+          tableStatuses.push({
+            table,
+            exists: false,
+            error: 'Servidor Supabase reiniciando ou pausado (502/504 Gateway)',
+            code: errCode || '502',
+            isOptional: item.isOptional,
+          });
+          if (!item.isOptional && !globalError) {
+            globalError = 'Servidor Supabase em processo de inicialização/reinício (502/504 Gateway).';
+          }
+        } else if (errCode === 'PGRST205' || errMsg.includes('schema cache') || errCode === '42P01') {
           isApiConnected = true;
           tableStatuses.push({
             table,
-            exists: true,
-            count: count ?? data?.length ?? 0,
+            exists: false,
+            error: `Tabela '${table}' ausente no Supabase (${errCode || 'PGRST205'})`,
+            code: errCode,
+            isOptional: item.isOptional,
           });
+          if (!item.isOptional && !globalError) {
+            globalError = `Tabela obrigatória '${table}' ausente no Supabase.`;
+          }
+        } else if (errCode === '42501' || errMsg.includes('permission denied')) {
+          isApiConnected = true;
+          tableStatuses.push({
+            table,
+            exists: false,
+            error: `Tabela existe, mas precisa de GRANT (Erro 42501)`,
+            code: errCode,
+            isOptional: item.isOptional,
+          });
+          if (!globalError) {
+            globalError = 'Acesso negado (Erro 42501). Execute o script SQL no Supabase para liberar permissões.';
+          }
+        } else {
+          // Outro erro qualquer
+          isApiConnected = true;
+          tableStatuses.push({
+            table,
+            exists: false,
+            error: errMsg,
+            code: errCode,
+            isOptional: item.isOptional,
+          });
+          if (!item.isOptional && !globalError) {
+            globalError = errMsg;
+          }
         }
-      } catch (err: any) {
+      } else {
+        isApiConnected = true;
         tableStatuses.push({
           table,
-          exists: false,
-          error: err?.message || 'Falha na requisição ao Supabase',
+          exists: true,
+          count: count ?? data?.length ?? 0,
+          isOptional: item.isOptional,
         });
-        globalError = err?.message || 'Erro de conexão de rede';
       }
     }
 
-    const hasTables = tableStatuses.length > 0 && tableStatuses.every((t) => t.exists);
+    // Se houve erro de gateway geral e nenhuma tabela respondeu, a API não está conectada
+    if (hasGatewayError && !tableStatuses.some((t) => t.exists)) {
+      isApiConnected = false;
+    }
+
+    const coreTableStatuses = tableStatuses.filter((t) => !t.isOptional);
+    const hasCoreTables = isApiConnected && coreTableStatuses.length > 0 && coreTableStatuses.every((t) => t.exists);
+    const hasTables = hasCoreTables;
 
     return {
       connected: isApiConnected,
       url: SUPABASE_URL,
       hasTables,
+      hasCoreTables,
       tableStatuses,
       errorMessage: globalError,
       lastChecked: new Date().toLocaleTimeString('pt-BR'),
@@ -409,6 +572,33 @@ export const supabaseService = {
     } catch (err: any) {
       console.warn('[Supabase] upsertSession exception:', err);
       return { success: false, error: err?.message || 'Erro de conexão' };
+    }
+  },
+
+  async updateSessionBeneficenceQr(
+    sessionId: string,
+    qrData: {
+      qrCodeId: string;
+      payload: string;
+      encodedImage?: string;
+      status?: 'ACTIVE' | 'EXPIRED' | 'CLOSED';
+    }
+  ): Promise<{ success: boolean; error?: string }> {
+    try {
+      const updateData: Record<string, any> = {
+        beneficenceQrCodeId: qrData.qrCodeId,
+        beneficenceQrPayload: qrData.payload,
+        beneficenceQrImage: qrData.encodedImage,
+        beneficenceQrStatus: qrData.status || 'ACTIVE',
+      };
+      const { error } = await supabase.from('sessions').update(updateData).eq('id', sessionId);
+      if (!error) {
+        this.broadcastLiveDelta('sessions', 'UPDATE', { id: sessionId, ...updateData });
+        return { success: true };
+      }
+      return { success: false, error: error.message };
+    } catch (err: any) {
+      return { success: false, error: err?.message };
     }
   },
 
@@ -842,43 +1032,119 @@ export const supabaseService = {
   }): Promise<{ success: boolean; errors: string[] }> {
     const errors: string[] = [];
 
-    // Check tables existence first
+    // 1. Verificar quais tabelas estão disponíveis no Supabase
     const conn = await this.checkConnection();
-    if (!conn.hasTables) {
-      const missingTables = conn.tableStatuses
-        .filter((t) => !t.exists)
-        .map((t) => t.table)
-        .join(', ');
 
+    // Se a conexão com o Supabase estiver indisponível/reiniciando
+    if (!conn.connected) {
       return {
         success: false,
         errors: [
-          `As tabelas do banco de dados ainda não existem no Supabase (${missingTables}). Por favor, acesse a aba 'Script SQL de Criação' e execute o script no Supabase SQL Editor.`,
+          `O servidor Supabase está temporariamente indisponível (${conn.errorMessage || '502 Bad Gateway'}). Seus dados permanecem salvos localmente. Tente novamente em instantes.`,
         ],
       };
     }
 
-    for (const m of payload.members) {
-      const res = await this.upsertMember(m);
-      if (!res.success && res.error) errors.push(`membro ${m.fullName}: ${res.error}`);
+    const existingTableNames = new Set(
+      conn.tableStatuses.filter((t) => t.exists).map((t) => t.table)
+    );
+
+    // Verificar tabelas fundamentais apenas se confirmadas como ausentes no banco
+    const confirmedMissing = conn.tableStatuses
+      .filter(
+        (t) =>
+          !t.isOptional &&
+          !t.exists &&
+          (t.code === 'PGRST205' || t.code === '42P01' || t.error?.includes('schema cache'))
+      )
+      .map((t) => t.table);
+
+    if (confirmedMissing.length > 0) {
+      return {
+        success: false,
+        errors: [
+          `As tabelas fundamentais ainda não existem no Supabase (${confirmedMissing.join(', ')}). Por favor, acesse a aba 'Script SQL de Criação' e execute o script no Supabase SQL Editor.`,
+        ],
+      };
     }
-    for (const s of payload.sessions) {
-      const res = await this.upsertSession(s);
-      if (!res.success && res.error) errors.push(`sessão ${s.title}: ${res.error}`);
+
+    // 2. Sincronizar membros se a tabela existir
+    if (existingTableNames.has('members')) {
+      for (const m of payload.members) {
+        const res = await this.upsertMember(m);
+        if (!res.success && res.error) {
+          const cleanErr = res.error.includes('Bad Gateway')
+            ? 'Servidor reiniciando (502)'
+            : res.error.includes('PGRST205')
+            ? 'Tabela ausente'
+            : res.error;
+          errors.push(`Membro ${m.fullName}: ${cleanErr}`);
+        }
+      }
     }
-    for (const a of payload.attendances) {
-      const res = await this.insertAttendance(a);
-      if (!res.success && res.error) errors.push(`presença ${a.id}: ${res.error}`);
+
+    // 3. Sincronizar sessões se a tabela existir
+    if (existingTableNames.has('sessions')) {
+      for (const s of payload.sessions) {
+        const res = await this.upsertSession(s);
+        if (!res.success && res.error) {
+          const cleanErr = res.error.includes('Bad Gateway')
+            ? 'Servidor reiniciando (502)'
+            : res.error.includes('PGRST205')
+            ? 'Tabela ausente'
+            : res.error;
+          errors.push(`Sessão ${s.title}: ${cleanErr}`);
+        }
+      }
     }
-    for (const v of payload.visitors) {
-      const res = await this.insertVisitor(v);
-      if (!res.success && res.error) errors.push(`visitante ${v.fullName}: ${res.error}`);
+
+    // 4. Sincronizar presenças se a tabela existir
+    if (existingTableNames.has('attendances')) {
+      for (const a of payload.attendances) {
+        const res = await this.insertAttendance(a);
+        if (!res.success && res.error) {
+          const cleanErr = res.error.includes('Bad Gateway')
+            ? 'Servidor reiniciando (502)'
+            : res.error.includes('PGRST205')
+            ? 'Tabela ausente'
+            : res.error;
+          errors.push(`Presença ${a.id}: ${cleanErr}`);
+        }
+      }
     }
-    for (const b of payload.balaustres) {
-      const res = await this.upsertBalaustre(b);
-      if (!res.success && res.error) errors.push(`balaustre ${b.number}: ${res.error}`);
+
+    // 5. Sincronizar visitantes se a tabela existir
+    if (existingTableNames.has('visitors')) {
+      for (const v of payload.visitors) {
+        const res = await this.insertVisitor(v);
+        if (!res.success && res.error) {
+          const cleanErr = res.error.includes('Bad Gateway')
+            ? 'Servidor reiniciando (502)'
+            : res.error.includes('PGRST205')
+            ? 'Tabela ausente'
+            : res.error;
+          errors.push(`Visitante ${v.fullName}: ${cleanErr}`);
+        }
+      }
     }
-    if (payload.pastaSales && payload.pastaSales.length > 0) {
+
+    // 6. Sincronizar balaústres se a tabela existir
+    if (existingTableNames.has('balaustres')) {
+      for (const b of payload.balaustres) {
+        const res = await this.upsertBalaustre(b);
+        if (!res.success && res.error) {
+          const cleanErr = res.error.includes('Bad Gateway')
+            ? 'Servidor reiniciando (502)'
+            : res.error.includes('PGRST205')
+            ? 'Tabela ausente'
+            : res.error;
+          errors.push(`Balaústre ${b.number}: ${cleanErr}`);
+        }
+      }
+    }
+
+    // 7. Sincronizar vendas de massa caso a tabela exista
+    if (existingTableNames.has('pasta_sales') && payload.pastaSales && payload.pastaSales.length > 0) {
       for (const p of payload.pastaSales) {
         try {
           const { error } = await supabase.from('pasta_sales').upsert({

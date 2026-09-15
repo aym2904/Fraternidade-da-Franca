@@ -19,7 +19,8 @@ import {
   Camera,
   UserCheck,
   UserCog,
-  ShoppingBag
+  ShoppingBag,
+  HeartHandshake
 } from 'lucide-react';
 import { Member } from '../types/masonic';
 import { isLodgeAdmin, isSystemAdmin, getRoleBadgeLabel } from '../utils/authUtils';
@@ -101,6 +102,8 @@ export const TopHeader: React.FC<TopHeaderProps> = React.memo(({
         return { label: isAdmin ? 'Inteligência, Estatísticas & Alertas' : 'Minha Frequência Litúrgica', icon: ShieldAlert, category: 'Análise' };
       case 'calendario':
         return { label: 'Calendário Maçônico', icon: CalendarDays, category: 'Agenda & Presenças' };
+      case 'tronco_beneficencia':
+        return { label: 'Tronco de Beneficência', icon: HeartHandshake, category: 'Beneficência & Solidariedade' };
       case 'venda_massas':
         return { label: 'Ação Beneficente', icon: ShoppingBag, category: 'Venda de Massas' };
       default:
@@ -158,20 +161,6 @@ export const TopHeader: React.FC<TopHeaderProps> = React.memo(({
 
         {/* Right: Active Session Indicator, Supabase Badge & User Menu */}
         <div className="flex items-center space-x-2 sm:space-x-3 shrink-0">
-          {/* Sair da Simulação Quick Pill (se estiver no modo simulação) */}
-          {isImpersonating && onExitImpersonation && (
-            <button
-              type="button"
-              onClick={onExitImpersonation}
-              className="flex items-center space-x-1.5 px-3 py-1 sm:py-1.5 rounded-full bg-amber-500 hover:bg-amber-400 text-slate-950 text-xs font-bold shadow-md transition active:scale-95 animate-pulse"
-              title="Encerrar visualização simulada e retornar ao Administrador Master"
-            >
-              <LogOut className="w-3.5 h-3.5 text-slate-950" />
-              <span className="hidden sm:inline">Voltar ao Admin Master</span>
-              <span className="sm:hidden">Voltar Master</span>
-            </button>
-          )}
-
           {/* Live Session Quick Pill */}
           {hasActiveSession && (
             <button

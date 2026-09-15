@@ -647,7 +647,7 @@ export const MemberManagement: React.FC<MemberManagementProps> = ({
                             <div>
                               <p className="font-medium text-slate-200">{s.title}</p>
                               <p className="text-[10px] text-slate-400">
-                                {s.date.split('-').reverse().join('/')} • Grau {s.degree}
+                                {s.date ? s.date.split('-').reverse().join('/') : '---'} • Grau {s.degree}
                               </p>
                             </div>
 

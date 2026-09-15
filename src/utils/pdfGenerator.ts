@@ -62,7 +62,8 @@ export function generateAttendanceCertificatePDF(
   doc.setFont('times', 'italic');
   doc.setFontSize(11);
   doc.setTextColor(71, 85, 105);
-  doc.text(`Realizada em ${session.date.split('-').reverse().join('/')} às ${session.time}h no Grau de ${session.degree}`, 148.5, 120, { align: 'center' });
+  const sessionFormattedDate = session.date ? session.date.split('-').reverse().join('/') : '---';
+  doc.text(`Realizada em ${sessionFormattedDate} às ${session.time || '--:--'}h no Grau de ${session.degree}`, 148.5, 120, { align: 'center' });
 
   // Date and Oriente
   const today = new Date().toLocaleDateString('pt-BR', { day: '2-digit', month: 'long', year: 'numeric' });
@@ -165,7 +166,8 @@ export function generateBalaustrePDF(
   doc.setFont('times', 'normal');
   doc.setFontSize(9);
   doc.setTextColor(30, 41, 59);
-  const infoText = `Data: ${session.date.split('-').reverse().join('/')} às ${session.time}h  |  Grau: ${session.degree}  |  Situação: ${balaustre.status || 'Aprovado'}`;
+  const sessionFormattedDate = session.date ? session.date.split('-').reverse().join('/') : '---';
+  const infoText = `Data: ${sessionFormattedDate} às ${session.time || '--:--'}h  |  Grau: ${session.degree}  |  Situação: ${balaustre.status || 'Aprovado'}`;
   doc.text(infoText, pageWidth / 2, currentY + 14, { align: 'center' });
 
   currentY += 28;

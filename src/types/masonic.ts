@@ -161,6 +161,14 @@ export interface Session {
   officers: Partial<Record<LodgeOfficerRole, string>>; // memberId or Name
   notes?: string;
   createdAt?: string; // ISO date string or timestamp of creation
+  closedAt?: string;
+
+  // QR Code Pix Estático do Tronco de Beneficência (Modelo Sessão -> Múltiplos Pagamentos)
+  beneficenceQrCodeId?: string;
+  beneficenceQrPayload?: string;
+  beneficenceQrImage?: string;
+  beneficenceQrExpiresAt?: string;
+  beneficenceQrStatus?: 'ACTIVE' | 'EXPIRED' | 'CLOSED' | 'PENDING';
 }
 
 export interface AttendanceRecord {
@@ -243,4 +251,81 @@ export interface PastaSale {
   pickupOperatorId?: string; // ID do irmão que realizou a entrega no dia
   pickupOperatorName?: string; // Nome do irmão que validou o QR Code e entregou a massa
   notes?: string;
+}
+
+// -------------------------------------------------------------
+// MÓDULO TRONCO DE BENEFICÊNCIA
+// -------------------------------------------------------------
+export type TroncoContributionStatus =
+  | 'PENDING'
+  | 'CONFIRMED'
+  | 'RECEIVED'
+  | 'CANCELLED'
+  | 'REFUNDED';
+
+export interface TroncoContribution {
+  id: string; // UUID único da contribuição
+  sequenceNumber?: number; // Contador sequencial (ex: 1, 2, 3 -> #001, #002)
+  sessionId: string; // ID da sessão vinculada
+  sessionTitle: string; // Título da sessão (ex: "Sessão nº 125")
+  sessionDate: string; // Data da sessão (YYYY-MM-DD)
+  amount: number; // Valor da contribuição em Reais (ex: 50.00)
+  currency?: string; // BRL
+  status: TroncoContributionStatus; // Status da cobrança
+  paymentMethod: 'PIX' | 'CASH';
+  
+  // Dados do Asaas
+  asaasPaymentId?: string; // ID da cobrança gerada no Asaas (ex: "pay_123456")
+  asaasQrCodeId?: string; // ID do QR Code Estático da Sessão no Asaas
+  asaasEventId?: string; // ID do evento de webhook recebido (para controle de idempotência)
+  asaasQrCode?: string; // Imagem base64 do QR Code ou URL
+  asaasPayload?: string; // String Copia e Cola do PIX
+  externalReference?: string;
+  
+  // Privacidade regimental do Irmão contribuinte (anônimo perante o público)
+  anonymous: boolean;
+  contributorId?: string; // Opcional (apenas para auditoria técnica caso necessário)
+  contributorCim?: string;
+  
+  // Timestamps
+  createdAt: string; // Data/Hora da intenção de contribuição
+  confirmedAt?: string; // Data/Hora da confirmação do webhook do Asaas
+  paidAt?: string;
+  notes?: string;
+}
+
+export interface TroncoSessionSummary {
+  sessionId: string;
+  sessionTitle: string;
+  sessionDate: string;
+  totalAmount: number;
+  confirmedCount: number;
+  isActive: boolean;
+}
+
+export interface TroncoNotificationSettings {
+  showAmountInNotification?: boolean;
+  enableSoundAlerts?: boolean;
+  enablePush?: boolean;
+  enableSound?: boolean;
+  notifyOnReceived?: boolean;
+  notifyHospitalerOnly?: boolean;
+}
+
+export interface TroncoPublicSummary {
+  currentSession: {
+    sessionId: string;
+    sessionTitle: string;
+    sessionDate: string;
+    totalAmount: number;
+    confirmedCount: number;
+    isActive: boolean;
+  } | null;
+  history: Array<{
+    sessionId: string;
+    sessionTitle: string;
+    sessionDate: string;
+    totalAmount: number;
+  }>;
+  totalAccumulated: number;
 }

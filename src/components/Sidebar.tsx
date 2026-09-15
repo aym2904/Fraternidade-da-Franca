@@ -19,7 +19,8 @@ import {
   User,
   ExternalLink,
   Sparkles,
-  ShoppingBag
+  ShoppingBag,
+  HeartHandshake
 } from 'lucide-react';
 import { Member } from '../types/masonic';
 import { isLodgeAdmin, isSystemAdmin, getRoleBadgeLabel } from '../utils/authUtils';
@@ -191,6 +192,15 @@ export const Sidebar: React.FC<SidebarProps> = React.memo(({
       visible: true,
       badge: null,
       badgeColor: '',
+    },
+    {
+      id: 'tronco_beneficencia',
+      label: 'Tronco de Beneficência',
+      shortLabel: 'Tronco',
+      icon: HeartHandshake,
+      visible: true,
+      badge: 'PIX',
+      badgeColor: 'bg-amber-500/20 text-amber-300 border border-amber-500/40',
     },
     {
       id: 'venda_massas',

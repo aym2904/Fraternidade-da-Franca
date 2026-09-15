@@ -188,8 +188,38 @@ export const SupabaseStatusModal: React.FC<SupabaseStatusModalProps> = ({
                 </div>
               </div>
 
-              {/* Notice when tables are missing or permissions needed */}
-              {!status?.hasTables && (
+              {/* Notice when server is offline or restarting */}
+              {!status?.connected && (
+                <div className="bg-rose-950/40 border border-rose-800/60 rounded-xl p-4 space-y-3">
+                  <div className="flex items-start space-x-3">
+                    <XCircle className="w-5 h-5 text-rose-400 shrink-0 mt-0.5" />
+                    <div className="space-y-2 text-xs text-rose-200">
+                      <p className="font-bold text-rose-300 text-sm">
+                        Servidor Supabase Temporariamente Indisponível (502 Bad Gateway / Reiniciando)
+                      </p>
+                      <p className="leading-relaxed">
+                        O serviço da nuvem Supabase está passando por um reinício automático ou instabilidade temporária.
+                        <strong className="text-white block mt-1">
+                          ✓ Seus dados continuam 100% preservados e funcionais no armazenamento local deste dispositivo.
+                        </strong>
+                      </p>
+                      <div className="pt-1 flex flex-wrap gap-2 items-center">
+                        <button
+                          onClick={handleRefresh}
+                          disabled={isRefreshing}
+                          className="bg-rose-600 hover:bg-rose-500 text-white font-bold text-xs px-3.5 py-1.5 rounded-lg transition flex items-center space-x-1.5 shadow active:scale-95 cursor-pointer disabled:opacity-50"
+                        >
+                          <RefreshCw className={`w-3.5 h-3.5 ${isRefreshing ? 'animate-spin' : ''}`} />
+                          <span>{isRefreshing ? 'Testando conexão...' : 'Tentar Reconectar Agora'}</span>
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Notice when connected but tables are missing or permissions needed */}
+              {status?.connected && !status?.hasTables && (
                 <div className="bg-amber-950/40 border border-amber-800/60 rounded-xl p-4 space-y-3">
                   <div className="flex items-start space-x-3">
                     <AlertTriangle className="w-5 h-5 text-amber-400 shrink-0 mt-0.5" />
@@ -254,11 +284,18 @@ export const SupabaseStatusModal: React.FC<SupabaseStatusModalProps> = ({
                           <XCircle className="w-4 h-4 text-amber-400 shrink-0" />
                         )}
                         <div>
-                          <p className="text-xs font-mono font-bold">{t.table}</p>
+                          <p className="text-xs font-mono font-bold flex items-center gap-1.5">
+                            <span>{t.table}</span>
+                            {t.isOptional && (
+                              <span className="text-[9px] font-sans font-normal text-slate-400 bg-slate-800/80 px-1.5 py-0.2 rounded border border-slate-700/60">
+                                Módulo Opcional
+                              </span>
+                            )}
+                          </p>
                           <p className="text-[10px] text-slate-400">
                             {t.exists
                               ? `${t.count ?? 0} registros encontrados`
-                              : t.error || 'Tabela não existe'}
+                              : t.error || (t.isOptional ? 'Módulo não instalado no Supabase' : 'Tabela obrigatória ausente')}
                           </p>
                         </div>
                       </div>
@@ -267,10 +304,12 @@ export const SupabaseStatusModal: React.FC<SupabaseStatusModalProps> = ({
                         className={`text-[10px] font-semibold px-2 py-0.5 rounded border ${
                           t.exists
                             ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30'
+                            : t.isOptional
+                            ? 'bg-slate-800 text-slate-400 border-slate-700'
                             : 'bg-amber-500/10 text-amber-400 border-amber-500/30'
                         }`}
                       >
-                        {t.exists ? 'OK' : 'Ausente (PGRST205)'}
+                        {t.exists ? 'OK' : t.isOptional ? 'Opcional' : 'Ausente (PGRST205)'}
                       </span>
                     </div>
                   ))}

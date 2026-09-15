@@ -14,6 +14,11 @@
 }
 
 /* Custom scrollbar */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: #334155 #090d16;
+}
+
 ::-webkit-scrollbar {
   width: 8px;
   height: 8px;

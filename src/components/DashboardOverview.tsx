@@ -291,8 +291,10 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({
                   </h3>
 
                   <p className="text-xs text-slate-400 mt-1 flex items-center space-x-4">
-                    <span>Data: {activeSession.date.split('-').reverse().join('/')} às {activeSession.time}h</span>
-                    <span>• Local: {activeSession.location}</span>
+                    <span>
+                      Data: {activeSession.date ? activeSession.date.split('-').reverse().join('/') : '---'} às {activeSession.time || '--:--'}h
+                    </span>
+                    <span>• Local: {activeSession.location || 'Templo Principal'}</span>
                   </p>
                 </div>
 
