@@ -48,13 +48,39 @@ export async function handleAsaasWebhook(req: any, res: any) {
     }
 
     // 2. Validação Fail-Closed: sem token ou com token divergente = 401
-    const webhookSecret = process.env.ASAAS_WEBHOOK_TOKEN || process.env.ASAAS_WEBHOOK_SECRET;
+    const webhookSecret =
+      process.env.ASAAS_WEBHOOK_TOKEN ||
+      process.env.ASAAS_WEBHOOK_SECRET ||
+      '';
+
     const incomingToken =
-      req.headers?.['asaas-access-token'] || req.headers?.['x-webhook-token'] || (req.query?.token as string);
+      req.headers?.['asaas-access-token'] ||
+      req.headers?.['x-webhook-token'] ||
+      (req.query?.token as string);
+
+    console.log('[ASAAS WEBHOOK AUTH DEBUG]', {
+      envTokenConfigured: Boolean(webhookSecret),
+      envTokenLength: webhookSecret.length,
+      incomingTokenPresent: Boolean(incomingToken),
+      incomingTokenType: typeof incomingToken,
+      incomingTokenLength:
+        typeof incomingToken === 'string'
+          ? incomingToken.length
+          : Array.isArray(incomingToken)
+            ? incomingToken.join('').length
+            : 0,
+      availableHeaderNames: Object.keys(req.headers || {}).filter((key) =>
+        key.toLowerCase().includes('asaas')
+      ),
+    });
 
     if (!webhookSecret || incomingToken !== webhookSecret) {
-      console.warn('[ASAAS WEBHOOK] Acesso não autorizado: token de webhook ausente ou inválido.');
-      return res.status(401).json({ error: 'Unauthorized: Token de webhook inválido ou ausente' });
+      console.warn(
+        '[ASAAS WEBHOOK] Acesso não autorizado: token de webhook ausente ou inválido.'
+      );
+      return res.status(401).json({
+        error: 'Unauthorized: Token de webhook inválido ou ausente',
+      });
     }
 
     const body = req.body || {};
