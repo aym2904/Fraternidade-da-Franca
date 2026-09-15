@@ -58,7 +58,7 @@ export async function handleAsaasWebhook(req: any, res: any) {
       req.headers?.['x-webhook-token'] ||
       (req.query?.token as string);
 
-    console.log('[ASAAS WEBHOOK AUTH DEBUG]', {
+    const authDiagnostic = {
       envTokenConfigured: Boolean(webhookSecret),
       envTokenLength: webhookSecret.length,
       incomingTokenPresent: Boolean(incomingToken),
@@ -72,14 +72,16 @@ export async function handleAsaasWebhook(req: any, res: any) {
       availableHeaderNames: Object.keys(req.headers || {}).filter((key) =>
         key.toLowerCase().includes('asaas')
       ),
-    });
+    };
+
+    console.log('[ASAAS WEBHOOK AUTH DEBUG]', authDiagnostic);
 
     if (!webhookSecret || incomingToken !== webhookSecret) {
-      console.warn(
-        '[ASAAS WEBHOOK] Acesso não autorizado: token de webhook ausente ou inválido.'
-      );
+      console.warn('[ASAAS WEBHOOK] Falha de autenticação:', authDiagnostic);
+
       return res.status(401).json({
         error: 'Unauthorized: Token de webhook inválido ou ausente',
+        diagnostic: authDiagnostic,
       });
     }
 
