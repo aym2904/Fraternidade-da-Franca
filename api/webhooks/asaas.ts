@@ -1,4 +1,4 @@
-import { handleAsaasWebhook } from '../../server/asaasWebhookHandler';
+import { handleAsaasWebhook } from '../../server/asaasWebhookHandler.js';
 
 export default async function handler(req: any, res: any) {
   // 1. Garante que o endpoint Serverless aceite exclusivamente requisições POST

@@ -18,5 +18,5 @@
     "allowJs": true,
     "esModuleInterop": true
   },
-  "include": ["src", "server.ts"]
+  "include": ["src", "server.ts", "server", "api"]
 }
