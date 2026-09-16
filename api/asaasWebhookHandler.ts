@@ -72,7 +72,10 @@ export async function handleAsaasWebhook(req: any, res: any) {
       availableHeaderNames: Object.keys(req.headers || {}),
     };
 
-    console.log('[ASAAS WEBHOOK AUTH DEBUG]', authDiagnostic);
+    console.log(
+      '[ASAAS WEBHOOK AUTH DEBUG JSON]',
+      JSON.stringify(authDiagnostic)
+    );
 
     if (!webhookSecret || incomingToken !== webhookSecret) {
       console.warn('[ASAAS WEBHOOK] Falha de autenticação:', authDiagnostic);
