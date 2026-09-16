@@ -62,6 +62,7 @@ export async function handleAsaasWebhook(req: any, res: any) {
     );
 
     if (!supabaseAdmin) {
+      console.error('[ASAAS 503 DIAGNOSTIC] POINT_02_SUPABASE_ADMIN');
       console.error('[ASAAS WEBHOOK] SUPABASE_URL ou SUPABASE_SERVICE_ROLE_KEY ausente. Rejeitando com HTTP 503.');
       return res.status(503).json({
         error: 'Serviço de persistência não configurado no backend (Supabase Admin ausente)',
@@ -125,6 +126,7 @@ export async function handleAsaasWebhook(req: any, res: any) {
     // 3. Validação rigorosa de event_id (usar exclusivamente body.id, sem geração artificial)
     const eventId = body.id;
     if (!eventId || typeof eventId !== 'string' || eventId.trim() === '') {
+      console.error('[ASAAS 503 DIAGNOSTIC] POINT_03_EVENT_ID');
       console.error('[ASAAS WEBHOOK] body.id (event_id) ausente ou inválido.');
       return res.status(503).json({
         error: 'body.id (event_id) ausente ou inválido',
@@ -134,6 +136,7 @@ export async function handleAsaasWebhook(req: any, res: any) {
     // 4. Validação de body.event
     const event = body.event;
     if (!event || typeof event !== 'string' || event.trim() === '') {
+      console.error('[ASAAS 503 DIAGNOSTIC] POINT_04_EVENT_TYPE');
       console.error('[ASAAS WEBHOOK] body.event ausente ou inválido.');
       return res.status(503).json({
         error: 'body.event ausente ou inválido',
@@ -143,6 +146,7 @@ export async function handleAsaasWebhook(req: any, res: any) {
     const payment = body.payment || {};
     const paymentId = payment.id;
     if (!paymentId || typeof paymentId !== 'string' || paymentId.trim() === '') {
+      console.error('[ASAAS 503 DIAGNOSTIC] POINT_05_PAYMENT_ID');
       console.error('[ASAAS WEBHOOK] payment.id ausente ou inválido.');
       return res.status(503).json({
         error: 'payment.id ausente ou inválido',
@@ -156,6 +160,7 @@ export async function handleAsaasWebhook(req: any, res: any) {
       rawValue === undefined ||
       rawValue === ''
     ) {
+      console.error('[ASAAS 503 DIAGNOSTIC] POINT_06_PAYMENT_VALUE_MISSING');
       console.error('[ASAAS WEBHOOK] payment.value ausente.');
       return res.status(503).json({
         error: 'payment.value ausente',
@@ -166,6 +171,7 @@ export async function handleAsaasWebhook(req: any, res: any) {
       typeof rawValue !== 'number' &&
       typeof rawValue !== 'string'
     ) {
+      console.error('[ASAAS 503 DIAGNOSTIC] POINT_07_PAYMENT_VALUE_TYPE');
       console.error('[ASAAS WEBHOOK] payment.value possui tipo inválido:', typeof rawValue);
       return res.status(503).json({
         error: 'payment.value inválido',
@@ -178,6 +184,7 @@ export async function handleAsaasWebhook(req: any, res: any) {
       value <= 0 ||
       Math.round(value * 100) !== value * 100
     ) {
+      console.error('[ASAAS 503 DIAGNOSTIC] POINT_08_PAYMENT_VALUE_INVALID');
       console.error('[ASAAS WEBHOOK] payment.value inválido:', rawValue);
       return res.status(503).json({
         error: 'payment.value inválido',
@@ -223,6 +230,7 @@ export async function handleAsaasWebhook(req: any, res: any) {
       }
 
       if (sessionErr) {
+        console.error('[ASAAS 503 DIAGNOSTIC] POINT_09_SESSION_QUERY', sessionErr?.message || String(sessionErr));
         console.error('[ASAAS WEBHOOK] Erro ao consultar sessões ativas no Supabase:', sessionErr);
         return res.status(503).json({
           error: 'Erro de comunicação ao validar sessão ativa no Supabase',
@@ -230,6 +238,7 @@ export async function handleAsaasWebhook(req: any, res: any) {
       }
 
       if (activeSessions && activeSessions.length > 1) {
+        console.error('[ASAAS 503 DIAGNOSTIC] POINT_10_MULTIPLE_ACTIVE_SESSIONS');
         console.error(
           `[ASAAS WEBHOOK] Múltiplas sessões ativas (${activeSessions.length}) encontradas para o beneficenceQrCodeId ${pixQrCodeId}. Rejeitando com HTTP 503.`
         );
@@ -257,6 +266,7 @@ export async function handleAsaasWebhook(req: any, res: any) {
       const parsedDate = new Date(String(payment.paymentDate));
 
       if (Number.isNaN(parsedDate.getTime())) {
+        console.error('[ASAAS 503 DIAGNOSTIC] POINT_11_PAYMENT_DATE');
         return res.status(503).json({
           error: 'INVALID_PAYMENT_DATE',
           message: 'Asaas paymentDate is present but invalid. Event will be retried.',
@@ -272,6 +282,7 @@ export async function handleAsaasWebhook(req: any, res: any) {
       const { apiKey, baseUrl: asaasBaseUrl } = resolveAsaasConfig();
 
       if (!apiKey || apiKey === 'MY_ASAAS_API_KEY') {
+        console.error('[ASAAS 503 DIAGNOSTIC] POINT_12_REFUND_API_KEY');
         console.error('[ASAAS WEBHOOK] ASAAS_API_KEY ausente ou não configurada para consulta de refunds.');
         return res.status(503).json({
           error: 'ASAAS_API_KEY não configurada no backend para consulta oficial de refunds',
@@ -290,6 +301,7 @@ export async function handleAsaasWebhook(req: any, res: any) {
 
         if (!refundRes.ok) {
           const errText = await refundRes.text();
+          console.error('[ASAAS 503 DIAGNOSTIC] POINT_13_REFUND_HTTP', `HTTP ${refundRes.status}`);
           console.error(`[ASAAS WEBHOOK] Falha na consulta à API de refunds (HTTP ${refundRes.status}): ${errText}`);
           return res.status(503).json({
             error: 'Falha na consulta oficial de refunds do Asaas',
@@ -306,6 +318,7 @@ export async function handleAsaasWebhook(req: any, res: any) {
 
         refundsPayload = refundsList;
       } catch (refundErr: any) {
+        console.error('[ASAAS 503 DIAGNOSTIC] POINT_14_REFUND_EXCEPTION', refundErr?.message || String(refundErr));
         console.error('[ASAAS WEBHOOK] Exceção ao consultar API de refunds do Asaas:', refundErr);
         return res.status(503).json({
           error: 'Exceção na consulta oficial de refunds do Asaas. Evento será retentado.',
@@ -317,6 +330,8 @@ export async function handleAsaasWebhook(req: any, res: any) {
     console.log(
       `[ASAAS WEBHOOK] Invocando process_asaas_webhook_transaction: event=${event} | paymentId=${paymentId} | pixQrCodeId=${pixQrCodeId} | value=${value} | sessionId=${targetSessionId}`
     );
+
+    console.log('[ASAAS FLOW] BEFORE_RPC');
 
     // 10. Chamada EXATA à RPC process_asaas_webhook_transaction
     const { data: rpcResult, error: rpcError } = await supabaseAdmin.rpc(
@@ -334,6 +349,11 @@ export async function handleAsaasWebhook(req: any, res: any) {
     );
 
     if (rpcError) {
+      console.error(
+        '[ASAAS FLOW] RPC_ERROR',
+        rpcError instanceof Error ? rpcError.message : String(rpcError)
+      );
+      console.error('[ASAAS 503 DIAGNOSTIC] POINT_15_RPC', rpcError?.message || String(rpcError));
       console.error('[ASAAS WEBHOOK] Erro retornado pela RPC process_asaas_webhook_transaction:', rpcError);
       return res.status(503).json({
         error: 'Falha no processamento financeiro transacional',
@@ -341,6 +361,7 @@ export async function handleAsaasWebhook(req: any, res: any) {
       });
     }
 
+    console.log('[ASAAS FLOW] RPC_SUCCESS');
     console.log('[ASAAS WEBHOOK] RPC executada com sucesso:', rpcResult);
 
     // 11. Broadcast Realtime no canal tronco_public_updates (após RPC bem-sucedida, com cleanup no finally)
@@ -375,6 +396,7 @@ export async function handleAsaasWebhook(req: any, res: any) {
       result: rpcResult,
     });
   } catch (err: any) {
+    console.error('[ASAAS 503 DIAGNOSTIC] POINT_16_GENERAL_EXCEPTION', err?.message || String(err));
     console.error('[ASAAS WEBHOOK ERROR]:', err);
     return res.status(503).json({
       error: 'Erro no processamento do webhook',

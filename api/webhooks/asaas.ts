@@ -32,6 +32,7 @@ export default async function handler(req: any, res: any) {
     try {
       req.body = JSON.parse(req.body);
     } catch {
+      console.error('[ASAAS 503 DIAGNOSTIC] POINT_01_PAYLOAD_PARSE');
       return res.status(503).json({ error: 'Payload JSON inválido' });
     }
   }
