@@ -40,6 +40,27 @@ export async function handleAsaasWebhook(req: any, res: any) {
   const supabaseAdmin = getSupabaseAdmin();
   try {
     // 1. Validação Fail-Closed do Supabase Admin
+    console.log(
+      '[ASAAS SUPABASE ENV DEBUG]',
+      JSON.stringify({
+        supabaseUrlConfigured: Boolean(
+          process.env.SUPABASE_URL ||
+          process.env.VITE_SUPABASE_URL
+        ),
+        supabaseServiceRoleConfigured: Boolean(
+          process.env.SUPABASE_SERVICE_ROLE_KEY
+        ),
+        supabaseUrlLength: String(
+          process.env.SUPABASE_URL ||
+          process.env.VITE_SUPABASE_URL ||
+          ''
+        ).length,
+        supabaseServiceRoleLength: String(
+          process.env.SUPABASE_SERVICE_ROLE_KEY || ''
+        ).length
+      })
+    );
+
     if (!supabaseAdmin) {
       console.error('[ASAAS WEBHOOK] SUPABASE_URL ou SUPABASE_SERVICE_ROLE_KEY ausente. Rejeitando com HTTP 503.');
       return res.status(503).json({
