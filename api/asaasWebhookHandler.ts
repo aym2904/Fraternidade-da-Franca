@@ -263,10 +263,43 @@ export async function handleAsaasWebhook(req: any, res: any) {
       payment.paymentDate !== null &&
       String(payment.paymentDate).trim() !== ''
     ) {
-      const parsedDate = new Date(String(payment.paymentDate));
+      const rawDateStr = String(payment.paymentDate).trim();
+      let parsedDate: Date | null = null;
 
-      if (Number.isNaN(parsedDate.getTime())) {
-        console.error('[ASAAS 503 DIAGNOSTIC] POINT_11_PAYMENT_DATE');
+      // 8.1. Suporte ao formato DD/MM/YYYY (comum no Asaas)
+      const ddmmyyyyMatch = rawDateStr.match(/^(\d{2})\/(\d{2})\/(\d{4})(?:\s+(\d{2}):(\d{2})(?::(\d{2}))?)?$/);
+      if (ddmmyyyyMatch) {
+        const day = parseInt(ddmmyyyyMatch[1], 10);
+        const month = parseInt(ddmmyyyyMatch[2], 10);
+        const year = parseInt(ddmmyyyyMatch[3], 10);
+        const hours = ddmmyyyyMatch[4] || '00';
+        const minutes = ddmmyyyyMatch[5] || '00';
+        const seconds = ddmmyyyyMatch[6] || '00';
+
+        // Validação de calendário (dias por mês, ano bissexto)
+        const checkDate = new Date(year, month - 1, day);
+        if (
+          checkDate.getFullYear() === year &&
+          checkDate.getMonth() === month - 1 &&
+          checkDate.getDate() === day
+        ) {
+          // Fuso America/Sao_Paulo (-03:00)
+          const isoWithTz = `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}T${hours}:${minutes}:${seconds}-03:00`;
+          const candidate = new Date(isoWithTz);
+          if (!Number.isNaN(candidate.getTime())) {
+            parsedDate = candidate;
+          }
+        }
+      } else {
+        // 8.2. Formato ISO / YYYY-MM-DD padrão
+        const candidate = new Date(rawDateStr);
+        if (!Number.isNaN(candidate.getTime())) {
+          parsedDate = candidate;
+        }
+      }
+
+      if (!parsedDate || Number.isNaN(parsedDate.getTime())) {
+        console.error('[ASAAS 503 DIAGNOSTIC] POINT_11_PAYMENT_DATE', rawDateStr);
         return res.status(503).json({
           error: 'INVALID_PAYMENT_DATE',
           message: 'Asaas paymentDate is present but invalid. Event will be retried.',
