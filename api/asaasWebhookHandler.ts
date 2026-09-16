@@ -143,6 +143,39 @@ export async function handleAsaasWebhook(req: any, res: any) {
       });
     }
 
+    const normalizedEvent = event.trim().toUpperCase();
+
+    const troncoRelevantEvents = new Set([
+      'PAYMENT_RECEIVED',
+      'PAYMENT_CONFIRMED',
+      'PAYMENT_REFUNDED',
+      'PAYMENT_PARTIALLY_REFUNDED',
+      'PAYMENT_REFUND_IN_PROGRESS',
+    ]);
+
+    if (!troncoRelevantEvents.has(normalizedEvent)) {
+      console.log(
+        `[ASAAS WEBHOOK] Evento ignorado antes das validações financeiras: ${normalizedEvent}`
+      );
+
+      return res.status(200).json({
+        received: true,
+        success: true,
+        eventId: eventId.trim(),
+        paymentId:
+          typeof body.payment?.id === 'string' &&
+          body.payment.id.trim() !== ''
+            ? body.payment.id.trim()
+            : null,
+        result: {
+          action: 'IGNORED_EVENT_TYPE',
+          success: true,
+          event_type: normalizedEvent,
+          should_broadcast: false,
+        },
+      });
+    }
+
     const payment = body.payment || {};
     const paymentId = payment.id;
     if (!paymentId || typeof paymentId !== 'string' || paymentId.trim() === '') {
