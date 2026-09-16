@@ -69,9 +69,7 @@ export async function handleAsaasWebhook(req: any, res: any) {
           : Array.isArray(incomingToken)
             ? incomingToken.join('').length
             : 0,
-      availableHeaderNames: Object.keys(req.headers || {}).filter((key) =>
-        key.toLowerCase().includes('asaas')
-      ),
+      availableHeaderNames: Object.keys(req.headers || {}),
     };
 
     console.log('[ASAAS WEBHOOK AUTH DEBUG]', authDiagnostic);
