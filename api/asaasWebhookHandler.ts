@@ -58,18 +58,31 @@ export async function handleAsaasWebhook(req: any, res: any) {
       req.headers?.['x-webhook-token'] ||
       (req.query?.token as string);
 
+    const rawHeaders = req.headers || {};
+
     const authDiagnostic = {
       envTokenConfigured: Boolean(webhookSecret),
       envTokenLength: webhookSecret.length,
-      incomingTokenPresent: Boolean(incomingToken),
-      incomingTokenType: typeof incomingToken,
-      incomingTokenLength:
-        typeof incomingToken === 'string'
-          ? incomingToken.length
-          : Array.isArray(incomingToken)
-            ? incomingToken.join('').length
-            : 0,
-      availableHeaderNames: Object.keys(req.headers || {}),
+
+      asaasAccessTokenPresent:
+        typeof rawHeaders['asaas-access-token'] === 'string' &&
+        rawHeaders['asaas-access-token'].length > 0,
+
+      asaasAccessTokenLength:
+        typeof rawHeaders['asaas-access-token'] === 'string'
+          ? rawHeaders['asaas-access-token'].length
+          : 0,
+
+      authorizationPresent:
+        typeof rawHeaders['authorization'] === 'string' &&
+        rawHeaders['authorization'].length > 0,
+
+      accessTokenPresent:
+        typeof rawHeaders['access-token'] === 'string' &&
+        rawHeaders['access-token'].length > 0,
+
+      allHeaderNames:
+        Object.keys(rawHeaders).sort().join(' | '),
     };
 
     console.log(
